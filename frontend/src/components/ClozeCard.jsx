@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import SpeakButton from './SpeakButton';
 
-const ClozeCard = ({ sentence, word, definition, onAnswer, onAutoGrade }) => {
+const ClozeCard = ({ sentence, word, definition, onResult }) => {
   const [userInputs, setUserInputs] = useState({});
   const [submitted, setSubmitted] = useState(false);
   const [results, setResults] = useState({});
@@ -58,11 +58,10 @@ const ClozeCard = ({ sentence, word, definition, onAnswer, onAutoGrade }) => {
 
     setResults(newResults);
     setSubmitted(true);
-    // Auto-grade: correct = quality 4 (Good), wrong = quality 3 (Hard)
-    if (onAutoGrade) {
-      onAutoGrade(allCorrect ? 4 : 3);
+    // Notify parent of result
+    if (onResult) {
+      onResult(allCorrect);
     }
-    if (onAnswer) onAnswer(allCorrect);
   };
 
   const handleKeyPress = (e) => {

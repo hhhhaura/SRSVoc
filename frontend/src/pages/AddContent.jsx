@@ -198,10 +198,13 @@ const AddContent = () => {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Upload CSV File (optional)
               </label>
+              <p className="text-xs text-gray-400 mb-2">
+                CSV format: <code className="bg-gray-100 px-1 rounded">word,definition,example</code>
+              </p>
               <input
                 type="file"
                 ref={fileInputRef}
-                accept=".csv,.txt"
+                accept=".csv"
                 onChange={handleFileUpload}
                 className="hidden"
               />
@@ -211,7 +214,7 @@ const AddContent = () => {
                 className="w-full flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 hover:border-indigo-500 hover:text-indigo-600 transition-colors"
               >
                 <FileText size={20} />
-                Click to upload .csv or .txt file
+                Click to upload .csv file
               </button>
             </div>
 
@@ -220,15 +223,15 @@ const AddContent = () => {
                 Or paste cards below (one per line)
               </label>
               <p className="text-xs text-gray-400 mb-2">
-                Format: <code className="bg-gray-100 px-1 rounded">word,definition,example</code> (comma) or <code className="bg-gray-100 px-1 rounded">word definition</code> (space/tab)
+                Format: <code className="bg-gray-100 px-1 rounded">word | definition | example</code> (pipe-separated)
               </p>
               <textarea
                 value={importText}
                 onChange={(e) => setImportText(e.target.value)}
-                placeholder={`apple,a round fruit,He ate an *apple* yesterday.
-banana,a yellow fruit,She likes *bananas*.
-hello 你好
-world 世界`}
+                placeholder={`apple | a round fruit | He ate an *apple* yesterday.
+banana | a yellow fruit | She likes *bananas*.
+hello | 你好
+world | 世界`}
                 className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none resize-none font-mono text-sm"
                 rows={8}
                 required

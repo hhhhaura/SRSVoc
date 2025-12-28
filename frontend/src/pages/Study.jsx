@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Loader2, RotateCcw, Check, HelpCircle } from 'lucide-react';
 import { getStudyCards, reviewCard } from '../api/study';
@@ -22,6 +22,7 @@ const Study = () => {
   const [showRating, setShowRating] = useState(false);
   const [cardMode, setCardMode] = useState(preferredCardMode);
   const [completed, setCompleted] = useState(false);
+  const [clozeResult, setClozeResult] = useState(null); // null = not answered, true = correct, false = wrong
 
   useEffect(() => {
     const fetchCards = async () => {
@@ -53,29 +54,35 @@ const Study = () => {
     }
   };
 
-  const handleClozeAnswer = (correct) => {
-    // No longer showing rating buttons for cloze - auto-graded
+  const handleClozeResult = (correct) => {
+    setClozeResult(correct);
+    if (correct) {
+      // Show difficulty buttons for correct answers
+      setShowRating(true);
+    }
+    // For wrong answers, we'll show a Next button instead
   };
 
-  const handleClozeAutoGrade = async (quality) => {
-    // Auto-grade cloze cards without showing difficulty buttons
+  const handleClozeNext = async () => {
+    // Wrong answer - apply penalty (quality 0 = forgot)
     try {
-      await reviewCard(currentCard.id, quality);
-      
-      // Wait a moment to show the result before moving to next card
-      setTimeout(() => {
-        if (currentIndex < cards.length - 1) {
-          setCurrentIndex(currentIndex + 1);
-          setIsFlipped(false);
-          setShowRating(false);
-        } else {
-          setCompleted(true);
-        }
-      }, 1500);
+      await reviewCard(currentCard.id, 0);
+      moveToNextCard();
     } catch (error) {
       console.error('Failed to submit review:', error);
     }
   };
+
+  const moveToNextCard = useCallback(() => {
+    if (currentIndex < cards.length - 1) {
+      setCurrentIndex(currentIndex + 1);
+      setIsFlipped(false);
+      setShowRating(false);
+      setClozeResult(null);
+    } else {
+      setCompleted(true);
+    }
+  }, [currentIndex, cards.length]);
 
   const handleRating = async (quality) => {
     try {
@@ -88,14 +95,7 @@ const Study = () => {
       
       await reviewCard(currentCard.id, effectiveQuality);
       
-      if (currentIndex < cards.length - 1) {
-        setCurrentIndex(currentIndex + 1);
-        setIsFlipped(false);
-        setShowRating(false);
-        // Keep the same card mode for next card
-      } else {
-        setCompleted(true);
-      }
+      moveToNextCard();
     } catch (error) {
       console.error('Failed to submit review:', error);
     }
@@ -186,14 +186,23 @@ const Study = () => {
               sentence={currentCard.example_sentence}
               word={currentCard.word}
               definition={currentCard.definition}
-              onAnswer={handleClozeAnswer}
-              onAutoGrade={handleClozeAutoGrade}
+              onResult={handleClozeResult}
             />
           )}
         </div>
 
-        {/* Rating Buttons - only show for flashcard mode */}
-        {showRating && cardMode === 'flashcard' && (
+        {/* Next button for wrong cloze answers */}
+        {cardMode === 'cloze' && clozeResult === false && (
+          <button
+            onClick={handleClozeNext}
+            className="w-full bg-gray-600 text-white py-3 rounded-xl font-medium hover:bg-gray-700 transition-colors"
+          >
+            Next →
+          </button>
+        )}
+
+        {/* Rating Buttons - show for flashcard mode OR correct cloze */}
+        {showRating && (cardMode === 'flashcard' || (cardMode === 'cloze' && clozeResult === true)) && (
           <div className="space-y-3">
             <div className="flex items-center justify-center gap-2">
               <p className="text-gray-500 text-sm">How well did you know this?</p>
