@@ -221,12 +221,14 @@ async def import_cards_csv(
             continue  # Skip empty rows
         
         # Check format: pipe-separated or CSV
+        # Format: word | definition | example | chinese (4th column optional)
         if '|' in line:
-            # Pipe-separated format: word | definition | example
+            # Pipe-separated format: word | definition | example | chinese
             parts = [p.strip() for p in line.split('|')]
             word = parts[0] if len(parts) > 0 else ""
             definition = parts[1] if len(parts) > 1 else ""
             example = parts[2] if len(parts) > 2 else None
+            chinese = parts[3] if len(parts) > 3 else None
         else:
             # CSV format (comma-separated)
             csv_file = StringIO(line)
@@ -235,13 +237,15 @@ async def import_cards_csv(
             word = row[0].strip() if len(row) > 0 else ""
             definition = row[1].strip() if len(row) > 1 else ""
             example = row[2].strip() if len(row) > 2 else None
+            chinese = row[3].strip() if len(row) > 3 else None
         
         if word and definition:  # Only add if word and definition exist
             card = Card(
                 deck_id=import_data.deck_id,
                 word=word,
                 definition=definition,
-                example_sentence=example if example else None
+                example_sentence=example if example else None,
+                chinese_translation=chinese if chinese else None
             )
             cards_to_add.append(card)
     

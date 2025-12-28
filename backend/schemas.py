@@ -83,6 +83,7 @@ class DeckResponse(DeckBase):
 class CardBase(BaseModel):
     word: str
     definition: str
+    chinese_translation: Optional[str] = None
     example_sentence: Optional[str] = None
 
 
@@ -93,6 +94,7 @@ class CardCreate(CardBase):
 class CardUpdate(BaseModel):
     word: Optional[str] = None
     definition: Optional[str] = None
+    chinese_translation: Optional[str] = None
     example_sentence: Optional[str] = None
 
 
@@ -125,6 +127,7 @@ class ReviewResponse(BaseModel):
 class ImportCard(BaseModel):
     word: str
     definition: str = Field(..., alias="def")
+    chinese_translation: Optional[str] = Field(None, alias="chinese")
     example_sentence: Optional[str] = Field(None, alias="example")
 
     class Config:

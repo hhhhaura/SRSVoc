@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import SpeakButton from './SpeakButton';
 
-const ClozeCard = ({ sentence, word, definition, onResult }) => {
+const ClozeCard = ({ sentence, word, definition, chinese, onResult }) => {
   const [userInputs, setUserInputs] = useState({});
   const [submitted, setSubmitted] = useState(false);
   const [results, setResults] = useState({});
@@ -129,6 +129,9 @@ const ClozeCard = ({ sentence, word, definition, onResult }) => {
                 <SpeakButton text={word} size={18} />
               </div>
               <p className="text-gray-600">{definition}</p>
+              {chinese && (
+                <p className="text-indigo-600 mt-1">{chinese}</p>
+              )}
             </div>
           )}
         </>

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import SpeakButton from './SpeakButton';
 
-const FlipCard = ({ front, back, sentence, onFlip }) => {
+const FlipCard = ({ front, back, sentence, chinese, onFlip }) => {
   const [isFlipped, setIsFlipped] = useState(false);
 
   const handleFlip = (e) => {
@@ -44,6 +44,9 @@ const FlipCard = ({ front, back, sentence, onFlip }) => {
         <div className="flip-card-back bg-indigo-600 shadow-lg flex items-center justify-center p-6">
           <div className="text-center text-white">
             <p className="text-xl font-medium">{back}</p>
+            {chinese && (
+              <p className="text-lg text-indigo-200 mt-2">{chinese}</p>
+            )}
           </div>
         </div>
       </div>

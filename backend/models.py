@@ -49,6 +49,7 @@ class Card(Base):
     deck_id = Column(Integer, ForeignKey("decks.id"), nullable=False)
     word = Column(String(200), nullable=False)
     definition = Column(Text, nullable=False)
+    chinese_translation = Column(Text, nullable=True)
     example_sentence = Column(Text, nullable=True)
     
     # SM-2 Algorithm fields

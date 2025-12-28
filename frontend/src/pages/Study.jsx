@@ -178,6 +178,7 @@ const Study = () => {
               front={currentCard.word}
               back={currentCard.definition}
               sentence={currentCard.example_sentence}
+              chinese={currentCard.chinese_translation}
               onFlip={handleFlip}
             />
           ) : (
@@ -186,6 +187,7 @@ const Study = () => {
               sentence={currentCard.example_sentence}
               word={currentCard.word}
               definition={currentCard.definition}
+              chinese={currentCard.chinese_translation}
               onResult={handleClozeResult}
             />
           )}
