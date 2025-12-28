@@ -220,13 +220,15 @@ const AddContent = () => {
                 Or paste cards below (one per line)
               </label>
               <p className="text-xs text-gray-400 mb-2">
-                Format: word,definition,example sentence (optional)
+                Format: <code className="bg-gray-100 px-1 rounded">word,definition,example</code> (comma) or <code className="bg-gray-100 px-1 rounded">word definition</code> (space/tab)
               </p>
               <textarea
                 value={importText}
                 onChange={(e) => setImportText(e.target.value)}
                 placeholder={`apple,a round fruit,He ate an *apple* yesterday.
-banana,a yellow fruit,She likes *bananas*.`}
+banana,a yellow fruit,She likes *bananas*.
+hello 你好
+world 世界`}
                 className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none resize-none font-mono text-sm"
                 rows={8}
                 required

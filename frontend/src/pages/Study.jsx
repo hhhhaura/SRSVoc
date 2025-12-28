@@ -54,7 +54,27 @@ const Study = () => {
   };
 
   const handleClozeAnswer = (correct) => {
-    setShowRating(true);
+    // No longer showing rating buttons for cloze - auto-graded
+  };
+
+  const handleClozeAutoGrade = async (quality) => {
+    // Auto-grade cloze cards without showing difficulty buttons
+    try {
+      await reviewCard(currentCard.id, quality);
+      
+      // Wait a moment to show the result before moving to next card
+      setTimeout(() => {
+        if (currentIndex < cards.length - 1) {
+          setCurrentIndex(currentIndex + 1);
+          setIsFlipped(false);
+          setShowRating(false);
+        } else {
+          setCompleted(true);
+        }
+      }, 1500);
+    } catch (error) {
+      console.error('Failed to submit review:', error);
+    }
   };
 
   const handleRating = async (quality) => {
@@ -167,12 +187,13 @@ const Study = () => {
               word={currentCard.word}
               definition={currentCard.definition}
               onAnswer={handleClozeAnswer}
+              onAutoGrade={handleClozeAutoGrade}
             />
           )}
         </div>
 
-        {/* Rating Buttons */}
-        {showRating && (
+        {/* Rating Buttons - only show for flashcard mode */}
+        {showRating && cardMode === 'flashcard' && (
           <div className="space-y-3">
             <div className="flex items-center justify-center gap-2">
               <p className="text-gray-500 text-sm">How well did you know this?</p>

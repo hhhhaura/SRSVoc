@@ -199,9 +199,10 @@ async def import_cards_csv(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Import cards from CSV format: word,definition,example_sentence (one per line)."""
+    """Import cards from CSV or space-separated format: word,definition,example_sentence (one per line)."""
     import csv
     from io import StringIO
+    import re
     
     deck = db.query(Deck).filter(
         Deck.id == import_data.deck_id,
@@ -211,18 +212,29 @@ async def import_cards_csv(
     if not deck:
         raise HTTPException(status_code=404, detail="Deck not found")
     
-    # Parse CSV data
+    # Parse data - support both comma and space/tab separated formats
     cards_to_add = []
-    csv_file = StringIO(import_data.csv_data)
-    reader = csv.reader(csv_file)
+    lines = import_data.csv_data.strip().split('\n')
     
-    for row in reader:
-        if not row or not row[0].strip():
+    for line in lines:
+        line = line.strip()
+        if not line:
             continue  # Skip empty rows
         
-        word = row[0].strip() if len(row) > 0 else ""
-        definition = row[1].strip() if len(row) > 1 else ""
-        example = row[2].strip() if len(row) > 2 else None
+        # Try comma-separated first
+        if ',' in line:
+            csv_file = StringIO(line)
+            reader = csv.reader(csv_file)
+            row = next(reader, [])
+            word = row[0].strip() if len(row) > 0 else ""
+            definition = row[1].strip() if len(row) > 1 else ""
+            example = row[2].strip() if len(row) > 2 else None
+        else:
+            # Fall back to space/tab separated (first word is the word, rest is definition)
+            parts = re.split(r'\s+', line, maxsplit=1)
+            word = parts[0].strip() if len(parts) > 0 else ""
+            definition = parts[1].strip() if len(parts) > 1 else ""
+            example = None
         
         if word and definition:  # Only add if word and definition exist
             card = Card(
