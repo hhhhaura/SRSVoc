@@ -1,7 +1,7 @@
 import api from './axios';
 
-export const getStudyCards = async (deckId, mode = 'due', limit = 15, clozeOnly = false) => {
-  const response = await api.get(`/study/${deckId}`, { params: { mode, limit, cloze_only: clozeOnly } });
+export const getStudyCards = async (deckId, mode = 'due', limit = 15, clozeOnly = false, withExamplesOnly = false) => {
+  const response = await api.get(`/study/${deckId}`, { params: { mode, limit, cloze_only: clozeOnly, with_examples_only: withExamplesOnly } });
   return response.data;
 };
 

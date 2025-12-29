@@ -66,11 +66,13 @@ async def get_study_cards(
     mode: str = "due",
     limit: int = 15,
     cloze_only: bool = False,
+    with_examples_only: bool = False,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get cards for study. Mode: 'due' (default) or 'all'. Limit: number of cards (0 for all).
-    cloze_only: if True, only return cards that have examples with *word* cloze markers."""
+    cloze_only: if True, only return cards that have examples with *word* cloze markers.
+    with_examples_only: if True, only return cards that have at least one example."""
     deck = db.query(Deck).filter(
         Deck.id == deck_id,
         Deck.user_id == current_user.id
@@ -90,11 +92,14 @@ async def get_study_cards(
             Card.next_review_date <= now
         ).all()
     
-    # Filter for cloze-only mode BEFORE sampling
+    # Filter for cloze-only mode BEFORE sampling (requires cloze markers)
     if cloze_only:
         cards = [card for card in cards if card.examples and any(
             ex.get('sentence', '').find('*') != -1 for ex in card.examples
         )]
+    # Filter for cards with examples (for cloze mode without requiring markers)
+    elif with_examples_only:
+        cards = [card for card in cards if card.examples and len(card.examples) > 0]
     
     # Apply weighted sampling if limit > 0
     if limit > 0 and len(cards) > limit:

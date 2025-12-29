@@ -33,9 +33,11 @@ const Study = () => {
         // Use limit from URL params, capped at 50
         const requestedLimit = limitParam ? parseInt(limitParam) : 15;
         const limit = Math.min(50, requestedLimit);
-        // For non-AI cloze mode, filter on backend BEFORE sampling
+        // For non-AI cloze mode, filter cards with examples on backend BEFORE sampling
         const isClozeMode = preferredCardMode === 'cloze' && !aiClozeParam;
-        const data = await getStudyCards(deckId, studyMode, limit, isClozeMode);
+        // For cloze mode (non-AI), require cards with examples
+        const withExamplesOnly = isClozeMode;
+        const data = await getStudyCards(deckId, studyMode, limit, false, withExamplesOnly);
         
         setCards(data);
         if (data.length === 0) {

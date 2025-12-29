@@ -171,6 +171,8 @@ const DeckView = () => {
 
   // Check if any cards have cloze markers
   const hasClozeCards = cards.some(card => card.examples?.some(ex => ex.sentence?.includes('*')));
+  // Count cards with examples (for cloze mode)
+  const cardsWithExamplesCount = cards.filter(card => card.examples && card.examples.length > 0).length;
 
   const toggleCardExpand = (cardId) => {
     setExpandedCards(prev => {
@@ -601,9 +603,14 @@ const DeckView = () => {
                     </div>
                   )}
                   <div className="flex-1">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="font-semibold text-gray-800">{card.word}</h3>
                       {!selectMode && <SpeakButton text={card.word} size={16} />}
+                      {card.examples && card.examples.length > 0 ? (
+                        <span className="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full">with examples</span>
+                      ) : (
+                        <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-500 rounded-full">no examples</span>
+                      )}
                     </div>
                     <p className="text-gray-600 text-sm mt-1">{card.definition}</p>
                     
@@ -701,6 +708,7 @@ const DeckView = () => {
         dueCount={deck?.due_count || 0}
         totalCards={cards.length}
         hasClozeCards={hasClozeCards}
+        cardsWithExamplesCount={cardsWithExamplesCount}
       />
 
       {/* Edit Card Modal */}

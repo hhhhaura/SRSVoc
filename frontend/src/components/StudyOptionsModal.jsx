@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { X, Play, HelpCircle, Sparkles } from 'lucide-react';
 import Tooltip from './Tooltip';
 
-const StudyOptionsModal = ({ isOpen, onClose, onStart, deckName, dueCount, totalCards, hasClozeCards }) => {
+const StudyOptionsModal = ({ isOpen, onClose, onStart, deckName, dueCount, totalCards, hasClozeCards, cardsWithExamplesCount }) => {
   const [cardMode, setCardMode] = useState('flashcard');
   const [cardsPerSession, setCardsPerSession] = useState(Math.min(dueCount || totalCards || 15, 15));
 
@@ -62,12 +62,12 @@ const StudyOptionsModal = ({ isOpen, onClose, onStart, deckName, dueCount, total
               </button>
               <button
                 onClick={() => setCardMode('cloze')}
-                disabled={!hasClozeCards}
+                disabled={!cardsWithExamplesCount}
                 className={`py-3 rounded-xl font-medium transition-colors text-sm ${
                   cardMode === 'cloze'
                     ? 'bg-indigo-600 text-white'
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                } ${!hasClozeCards ? 'opacity-50 cursor-not-allowed' : ''}`}
+                } ${!cardsWithExamplesCount ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 ✏️ Cloze
               </button>
@@ -83,9 +83,14 @@ const StudyOptionsModal = ({ isOpen, onClose, onStart, deckName, dueCount, total
                 AI
               </button>
             </div>
-            {!hasClozeCards && cardMode === 'cloze' && (
+            {!cardsWithExamplesCount && cardMode !== 'cloze-ai' && (
               <p className="text-xs text-gray-400 mt-2">
-                Cloze requires cards with example sentences containing *word* markers.
+                Cloze mode requires cards with example sentences.
+              </p>
+            )}
+            {cardsWithExamplesCount > 0 && cardMode === 'cloze' && (
+              <p className="text-xs text-green-600 mt-2">
+                {cardsWithExamplesCount} cards with examples available for cloze mode.
               </p>
             )}
             {cardMode === 'cloze-ai' && (
