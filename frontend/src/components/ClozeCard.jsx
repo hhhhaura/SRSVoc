@@ -124,6 +124,35 @@ const ClozeCard = ({ examples, word, definition, synonyms, onResult, cardId, aiE
     );
   }
 
+  // No example available - show fallback with word/definition
+  if (!sentence || parsed.answers.length === 0) {
+    return (
+      <div className="bg-white rounded-xl shadow-lg p-6">
+        <div className="text-center py-4">
+          <p className="text-amber-600 text-sm mb-4">No cloze example available for this card</p>
+          {word && definition && (
+            <div className="text-left border-t border-gray-100 pt-4">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-xl font-bold text-gray-800">{word}</span>
+                <SpeakButton text={word} size={18} />
+              </div>
+              <p className="text-gray-600">{definition}</p>
+              {synonyms && synonyms.length > 0 && (
+                <p className="text-gray-500 text-sm mt-1">Synonyms: {synonyms.join(', ')}</p>
+              )}
+            </div>
+          )}
+        </div>
+        <button
+          onClick={() => onResult && onResult(true)}
+          className="w-full bg-indigo-600 text-white py-3 rounded-xl font-medium hover:bg-indigo-700 transition-colors mt-4"
+        >
+          Continue →
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-white rounded-xl shadow-lg p-6">
       {/* AI Gen Mode indicator */}
