@@ -209,10 +209,34 @@ import csv
 from io import StringIO
 
 
-def parse_csv_line(row: list) -> dict:
-    """Parse a CSV row into card data. Expects: word, meaning, [synonyms], [examples]
+def parse_examples(examples_str: str) -> list:
+    """Parse examples in format: (sentence | trans); (sentence2 | trans2)...
     
-    Examples format: (sentence, translation) | (sentence2, translation2) ...
+    Examples are separated by semicolons, each in parentheses with | separating sentence and translation.
+    """
+    examples = []
+    if not examples_str:
+        return examples
+    
+    # Find all (...) groups using regex
+    pair_matches = re.findall(r'\(([^)]+)\)', examples_str)
+    for pair in pair_matches:
+        if '|' in pair:
+            pair_parts = pair.split('|', 1)
+            sentence = pair_parts[0].strip()
+            translation = pair_parts[1].strip() if len(pair_parts) > 1 else None
+            if sentence:
+                examples.append({"sentence": sentence, "translation": translation})
+        elif pair.strip():
+            examples.append({"sentence": pair.strip(), "translation": None})
+    
+    return examples
+
+
+def parse_csv_line(row: list) -> dict:
+    """Parse a CSV row into card data.
+    
+    Format: word, meaning, syn1 | syn2, (example1 | trans1); (example2 | trans2)
     """
     if len(row) < 2:
         return None
@@ -223,31 +247,18 @@ def parse_csv_line(row: list) -> dict:
     if not word or not definition:
         return None
     
-    # Synonyms (semicolon-separated within the cell)
+    # Synonyms (pipe-separated within the cell)
     synonyms = None
     if len(row) > 2 and row[2]:
         synonyms_str = row[2].strip()
-        synonyms = [s.strip() for s in synonyms_str.split(';') if s.strip()]
+        synonyms = [s.strip() for s in synonyms_str.split('|') if s.strip()]
         if not synonyms:
             synonyms = None
     
-    # Examples format: (sentence, translation) | (sentence2, translation2) ...
+    # Examples: (sentence | trans); (sentence2 | trans2)...
     examples = []
     if len(row) > 3 and row[3]:
-        examples_str = row[3].strip()
-        # Find all (...) groups using regex, separated by |
-        pair_matches = re.findall(r'\(([^)]+)\)', examples_str)
-        for pair in pair_matches:
-            # Split by comma to separate sentence and translation
-            if ',' in pair:
-                pair_parts = pair.split(',', 1)
-                sentence = pair_parts[0].strip()
-                translation = pair_parts[1].strip() if len(pair_parts) > 1 else None
-                if sentence:
-                    examples.append({"sentence": sentence, "translation": translation})
-            elif pair.strip():
-                # No comma found, just use as sentence
-                examples.append({"sentence": pair.strip(), "translation": None})
+        examples = parse_examples(row[3].strip())
     
     return {
         "word": word,
@@ -258,7 +269,10 @@ def parse_csv_line(row: list) -> dict:
 
 
 def parse_pipe_line(line: str) -> dict:
-    """Parse a pipe-separated line into card data."""
+    """Parse a pipe-separated line into card data.
+    
+    Format: word || meaning || syn1 | syn2 || (example1 | trans1); (example2 | trans2)
+    """
     parts = line.split('||')
     if len(parts) < 2:
         return None
@@ -269,24 +283,14 @@ def parse_pipe_line(line: str) -> dict:
     if not word or not definition:
         return None
     
-    # Synonyms (comma-separated)
+    # Synonyms (single pipe-separated)
     synonyms_str = parts[2].strip() if len(parts) > 2 else ""
-    synonyms = [s.strip() for s in synonyms_str.split(',') if s.strip()] if synonyms_str else None
+    synonyms = [s.strip() for s in synonyms_str.split('|') if s.strip()] if synonyms_str else None
     
-    # Examples: (sentence | trans), (sentence | trans)...
+    # Examples: (sentence | trans); (sentence2 | trans2)...
     examples = []
     if len(parts) > 3:
-        examples_str = parts[3].strip()
-        pair_matches = re.findall(r'\(([^)]+)\)', examples_str)
-        for pair in pair_matches:
-            if '|' in pair:
-                pair_parts = pair.split('|', 1)
-                sentence = pair_parts[0].strip()
-                translation = pair_parts[1].strip() if len(pair_parts) > 1 else None
-                if sentence:
-                    examples.append({"sentence": sentence, "translation": translation})
-            elif pair.strip():
-                examples.append({"sentence": pair.strip(), "translation": None})
+        examples = parse_examples(parts[3].strip())
     
     return {
         "word": word,
