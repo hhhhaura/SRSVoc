@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Play, Plus, Trash2, Edit2, Loader2, RotateCcw, BookOpen, HelpCircle, CheckSquare, Square, X, ChevronDown, ChevronUp, Sparkles } from 'lucide-react';
 import { getDeck, getCards, deleteDeck, deleteCard, createCard, updateCard } from '../api/library';
-import { resetDeckProgress, generateAIExamples } from '../api/study';
+import { resetDeckProgress, generateAIExamples, generateAIDefinition } from '../api/study';
 import ProgressBar from '../components/ProgressBar';
 import BottomNav from '../components/BottomNav';
 import Tooltip from '../components/Tooltip';
@@ -30,6 +30,7 @@ const DeckView = () => {
     examples: []
   });
   const [aiLoading, setAiLoading] = useState(false);
+  const [aiDefLoading, setAiDefLoading] = useState(false);
 
   const fetchData = async () => {
     try {
@@ -359,13 +360,41 @@ const DeckView = () => {
               className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
               autoFocus
             />
-            <textarea
-              value={newCard.definition}
-              onChange={(e) => setNewCard({ ...newCard, definition: e.target.value })}
-              placeholder="Meaning"
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none resize-none"
-              rows={2}
-            />
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-sm text-gray-500">Meaning</span>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!newCard.word.trim()) return;
+                    setAiDefLoading(true);
+                    try {
+                      const result = await generateAIDefinition(newCard.word.trim());
+                      if (result?.definition) {
+                        setNewCard(prev => ({ ...prev, definition: result.definition }));
+                      }
+                    } catch (error) {
+                      console.error('AI definition generation failed:', error);
+                      alert('Failed to generate definition. Please try again.');
+                    } finally {
+                      setAiDefLoading(false);
+                    }
+                  }}
+                  disabled={aiDefLoading || !newCard.word.trim()}
+                  className="flex items-center gap-1 text-sm text-purple-600 hover:text-purple-700 disabled:text-gray-400"
+                >
+                  {aiDefLoading ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                  AI Generate
+                </button>
+              </div>
+              <textarea
+                value={newCard.definition}
+                onChange={(e) => setNewCard({ ...newCard, definition: e.target.value })}
+                placeholder="Meaning"
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none resize-none"
+                rows={2}
+              />
+            </div>
             <input
               type="text"
               value={newCard.synonymsText}
@@ -673,7 +702,32 @@ const DeckView = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Meaning</label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-medium text-gray-700">Meaning</label>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!editForm.word.trim()) return;
+                      setAiDefLoading(true);
+                      try {
+                        const result = await generateAIDefinition(editForm.word.trim());
+                        if (result?.definition) {
+                          setEditForm(prev => ({ ...prev, definition: result.definition }));
+                        }
+                      } catch (error) {
+                        console.error('AI definition generation failed:', error);
+                        alert('Failed to generate definition. Please try again.');
+                      } finally {
+                        setAiDefLoading(false);
+                      }
+                    }}
+                    disabled={aiDefLoading || !editForm.word.trim()}
+                    className="flex items-center gap-1 text-sm text-purple-600 hover:text-purple-700 disabled:text-gray-400"
+                  >
+                    {aiDefLoading ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                    AI Generate
+                  </button>
+                </div>
                 <textarea
                   value={editForm.definition}
                   onChange={(e) => setEditForm(prev => ({ ...prev, definition: e.target.value }))}

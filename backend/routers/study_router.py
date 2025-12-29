@@ -357,6 +357,62 @@ class AIExampleRequest(PydanticBaseModel):
     definition: str
 
 
+class AIDefinitionRequest(PydanticBaseModel):
+    word: str
+
+
+AI_DEFINITION_PROMPT = '''為英文單字/片語 "{word}" 提供繁體中文定義。
+
+要求：
+1. 提供清晰、簡潔的繁體中文定義
+2. 如果有多個常見意思，列出最重要的2-3個
+3. 使用繁體中文（Traditional Chinese）
+
+輸出格式為 JSON：
+{{
+  "definition": "繁體中文定義"
+}}
+
+重要：只輸出 JSON 物件，不要其他文字。'''
+
+
+@router.post("/ai/generate-definition")
+async def generate_ai_definition(
+    request: AIDefinitionRequest,
+    current_user: User = Depends(get_current_user)
+):
+    """Generate AI definition for a word in Traditional Chinese using Gemini API."""
+    import google.generativeai as genai
+    
+    # Get API key from environment
+    api_key = os.getenv("GOOGLE_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="GOOGLE_API_KEY not configured")
+    
+    # Configure Gemini
+    genai.configure(api_key=api_key)
+    model = genai.GenerativeModel('gemini-2.0-flash')
+    
+    prompt = AI_DEFINITION_PROMPT.format(word=request.word)
+    
+    try:
+        response = model.generate_content(prompt)
+        response_text = response.text.strip()
+        
+        # Try to extract JSON from response (handle markdown code blocks)
+        if response_text.startswith("```"):
+            response_text = re.sub(r'^```(?:json)?\n?', '', response_text)
+            response_text = re.sub(r'\n?```$', '', response_text)
+        
+        result = json.loads(response_text)
+        return result
+        
+    except json.JSONDecodeError as e:
+        raise HTTPException(status_code=500, detail=f"Failed to parse AI response: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"AI API error: {str(e)}")
+
+
 @router.post("/ai/generate-examples")
 async def generate_ai_examples(
     request: AIExampleRequest,
