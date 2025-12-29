@@ -4,6 +4,9 @@ const SettingsContext = createContext();
 
 const DEFAULT_SETTINGS = {
   clozeScoreMultiplier: 1.5,
+  showClozeTranslation: true,  // Show Chinese translation in cloze mode
+  showFirstLetterHint: true,   // Show first letter hint in cloze mode
+  clozeAIGenMode: false,       // AI generates fresh examples for cloze mode
   username: '',
   avatar: '', // emoji or initials
 };

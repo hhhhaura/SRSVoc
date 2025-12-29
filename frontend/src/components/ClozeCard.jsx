@@ -1,13 +1,124 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import SpeakButton from './SpeakButton';
+import { useSettings } from '../context/SettingsContext';
+import { generateAIExamples } from '../api/study';
+import { Loader2, Sparkles } from 'lucide-react';
 
-const ClozeCard = ({ sentence, word, definition, chinese, onResult }) => {
+// Session-level cache for AI-generated examples (persists across card changes within session)
+const aiExamplesCache = new Map(); // cardId -> [examples]
+const seenExamplesSet = new Set(); // "cardId:exampleIndex" to track seen examples
+
+// Cache for stable random example selection (non-AI mode)
+const stableExampleCache = new Map(); // cardId -> selectedExample
+
+const ClozeCard = ({ examples, word, definition, synonyms, onResult, cardId }) => {
+  const { settings } = useSettings();
+  const [aiExample, setAiExample] = useState(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState(null);
+  
+  // Compute stable card key
+  const stableCardId = cardId || `${word}-${definition}`;
+  
+  // Single effect for AI example loading with proper cleanup
+  useEffect(() => {
+    // Skip if AI mode is off
+    if (!settings.clozeAIGenMode || !word || !definition) {
+      setAiExample(null);
+      setAiLoading(false);
+      setAiError(null);
+      return;
+    }
+    
+    const cacheKey = stableCardId;
+    const cachedExamples = aiExamplesCache.get(cacheKey) || [];
+    
+    // Check cache FIRST before any state updates
+    for (let i = 0; i < cachedExamples.length; i++) {
+      const seenKey = `${cacheKey}:${i}`;
+      if (!seenExamplesSet.has(seenKey)) {
+        seenExamplesSet.add(seenKey);
+        // Single state update - directly set the cached example
+        setAiExample(cachedExamples[i]);
+        setAiLoading(false);
+        setAiError(null);
+        return; // Found cached example, done
+      }
+    }
+    
+    // No cached unseen example - reset and generate
+    let cancelled = false;
+    setAiExample(null);
+    setAiError(null);
+    setAiLoading(true);
+    
+    const loadAIExample = async () => {
+      try {
+        const result = await generateAIExamples(word, definition);
+        if (cancelled) return;
+        
+        if (result?.examples && result.examples.length > 0) {
+          // Add to cache
+          const newExamples = [...cachedExamples, ...result.examples];
+          aiExamplesCache.set(cacheKey, newExamples);
+          
+          // Use the first new example and mark as seen
+          const newIndex = cachedExamples.length;
+          seenExamplesSet.add(`${cacheKey}:${newIndex}`);
+          setAiExample(result.examples[0]);
+        } else {
+          setAiError('No examples generated');
+        }
+      } catch (error) {
+        console.error('AI generation failed:', error);
+        if (!cancelled) {
+          setAiError('Failed to generate example');
+        }
+      } finally {
+        if (!cancelled) {
+          setAiLoading(false);
+        }
+      }
+    };
+    
+    loadAIExample();
+    
+    return () => {
+      cancelled = true;
+    };
+  }, [settings.clozeAIGenMode, stableCardId, word, definition]);
+  
+  // Pick example: AI-generated if in AI mode, otherwise stable random from stored examples
+  const selectedExample = useMemo(() => {
+    if (settings.clozeAIGenMode) {
+      // In AI mode, return aiExample (may be null while loading)
+      return aiExample;
+    }
+    
+    // Non-AI mode: use stable cached selection
+    if (!examples || examples.length === 0) return null;
+    
+    if (stableExampleCache.has(stableCardId)) {
+      return stableExampleCache.get(stableCardId);
+    }
+    
+    // Pick random and cache it
+    const randomIndex = Math.floor(Math.random() * examples.length);
+    const selected = examples[randomIndex];
+    stableExampleCache.set(stableCardId, selected);
+    return selected;
+  }, [examples, settings.clozeAIGenMode, aiExample, stableCardId]);
+  
+  const sentence = selectedExample?.sentence || '';
+  const translation = selectedExample?.translation || '';
   const [userInputs, setUserInputs] = useState({});
   const [submitted, setSubmitted] = useState(false);
   const [results, setResults] = useState({});
 
   // Parse cloze deletion: find text between asterisks
   const parsed = useMemo(() => {
+    if (!sentence) return { parts: [], answers: [] };
+    
     const regex = /\*([^*]+)\*/g;
     const matches = [];
     let match;
@@ -19,8 +130,10 @@ const ClozeCard = ({ sentence, word, definition, chinese, onResult }) => {
       if (match.index > lastIndex) {
         parts.push({ type: 'text', content: sentence.slice(lastIndex, match.index) });
       }
-      parts.push({ type: 'cloze', content: match[1], index: clozeIndex });
-      matches.push({ answer: match[1], index: clozeIndex });
+      const answer = match[1];
+      const firstLetter = settings.showFirstLetterHint ? answer.charAt(0) : '';
+      parts.push({ type: 'cloze', content: answer, index: clozeIndex, firstLetter });
+      matches.push({ answer, index: clozeIndex, firstLetter });
       clozeIndex++;
       lastIndex = regex.lastIndex;
     }
@@ -30,7 +143,7 @@ const ClozeCard = ({ sentence, word, definition, chinese, onResult }) => {
     }
 
     return { parts, answers: matches };
-  }, [sentence]);
+  }, [sentence, settings.showFirstLetterHint]);
 
   // Reset state when sentence changes (new card)
   useEffect(() => {
@@ -72,8 +185,42 @@ const ClozeCard = ({ sentence, word, definition, chinese, onResult }) => {
 
   const allFilled = parsed.answers.every(({ index }) => (userInputs[index] || '').trim());
 
+  // Show loading state for AI gen mode
+  if (settings.clozeAIGenMode && aiLoading) {
+    return (
+      <div className="bg-white rounded-xl shadow-lg p-6">
+        <div className="flex flex-col items-center justify-center py-12">
+          <Loader2 className="animate-spin text-purple-600 mb-4" size={40} />
+          <p className="text-gray-600 flex items-center gap-2">
+            <Sparkles size={16} className="text-purple-600" />
+            Generating AI example...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state for AI gen mode
+  if (settings.clozeAIGenMode && aiError && !aiExample) {
+    return (
+      <div className="bg-white rounded-xl shadow-lg p-6">
+        <div className="text-center py-8">
+          <p className="text-red-600 mb-4">{aiError}</p>
+          <p className="text-gray-500 text-sm">Falling back to stored examples...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-white rounded-xl shadow-lg p-6">
+      {/* AI Gen Mode indicator */}
+      {settings.clozeAIGenMode && aiExample && (
+        <div className="flex items-center gap-1 text-purple-600 text-xs mb-3">
+          <Sparkles size={12} />
+          <span>AI Generated</span>
+        </div>
+      )}
       <div className="text-lg leading-relaxed mb-6">
         {parsed.parts.map((part, idx) => (
           part.type === 'text' ? (
@@ -94,7 +241,7 @@ const ClozeCard = ({ sentence, word, definition, chinese, onResult }) => {
                   onChange={(e) => handleInputChange(part.index, e.target.value)}
                   onKeyPress={handleKeyPress}
                   className="border-b-2 border-indigo-400 bg-transparent outline-none text-center font-medium w-32 focus:border-indigo-600"
-                  placeholder="..."
+                  placeholder={settings.showFirstLetterHint ? `${part.firstLetter}...` : '...'}
                   autoFocus={part.index === 0}
                 />
               )}
@@ -102,6 +249,11 @@ const ClozeCard = ({ sentence, word, definition, chinese, onResult }) => {
           )
         ))}
       </div>
+
+      {/* Show translation if enabled */}
+      {settings.showClozeTranslation && translation && (
+        <p className="text-indigo-600 text-lg mb-4 italic">{translation}</p>
+      )}
 
       {!submitted ? (
         <button
@@ -129,8 +281,8 @@ const ClozeCard = ({ sentence, word, definition, chinese, onResult }) => {
                 <SpeakButton text={word} size={18} />
               </div>
               <p className="text-gray-600">{definition}</p>
-              {chinese && (
-                <p className="text-indigo-600 mt-1">{chinese}</p>
+              {synonyms && synonyms.length > 0 && (
+                <p className="text-gray-500 text-sm mt-1">Synonyms: {synonyms.join(', ')}</p>
               )}
             </div>
           )}

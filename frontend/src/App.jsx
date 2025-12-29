@@ -6,6 +6,7 @@ import Register from './pages/Register';
 import Library from './pages/Library';
 import DeckView from './pages/DeckView';
 import Study from './pages/Study';
+import MultiDeckStudy from './pages/MultiDeckStudy';
 import AddContent from './pages/AddContent';
 import Settings from './pages/Settings';
 import Todo from './pages/Todo';
@@ -76,6 +77,11 @@ function App() {
             <Route path="/study/:deckId" element={
               <ProtectedRoute>
                 <Study />
+              </ProtectedRoute>
+            } />
+            <Route path="/study/multi" element={
+              <ProtectedRoute>
+                <MultiDeckStudy />
               </ProtectedRoute>
             } />
             <Route path="/add" element={

@@ -79,12 +79,18 @@ class DeckResponse(DeckBase):
         from_attributes = True
 
 
+# Example Schema for structured examples
+class ExampleItem(BaseModel):
+    sentence: str
+    translation: Optional[str] = None
+
+
 # Card Schemas
 class CardBase(BaseModel):
     word: str
     definition: str
-    chinese_translation: Optional[str] = None
-    example_sentence: Optional[str] = None
+    synonyms: Optional[List[str]] = None
+    examples: Optional[List[ExampleItem]] = None
 
 
 class CardCreate(CardBase):
@@ -94,8 +100,8 @@ class CardCreate(CardBase):
 class CardUpdate(BaseModel):
     word: Optional[str] = None
     definition: Optional[str] = None
-    chinese_translation: Optional[str] = None
-    example_sentence: Optional[str] = None
+    synonyms: Optional[List[str]] = None
+    examples: Optional[List[ExampleItem]] = None
 
 
 class CardResponse(CardBase):
@@ -127,8 +133,8 @@ class ReviewResponse(BaseModel):
 class ImportCard(BaseModel):
     word: str
     definition: str = Field(..., alias="def")
-    chinese_translation: Optional[str] = Field(None, alias="chinese")
-    example_sentence: Optional[str] = Field(None, alias="example")
+    synonyms: Optional[List[str]] = None
+    examples: Optional[List[ExampleItem]] = None
 
     class Config:
         populate_by_name = True
@@ -174,3 +180,21 @@ class LibraryResponse(BaseModel):
 class CSVImportRequest(BaseModel):
     deck_id: int
     csv_data: str  # Raw CSV string: word,definition,example_sentence
+
+
+# Multi-deck Study Schema
+class MultiDeckStudyRequest(BaseModel):
+    deck_ids: List[int]
+    mode: str = "due"  # "due" or "all"
+    limit: int = 15  # 0 for no limit
+
+
+# PDF Import Schema
+class PDFImportRequest(BaseModel):
+    deck_id: int
+
+
+class PDFImportResponse(BaseModel):
+    imported_count: int
+    deck_id: int
+    cards_preview: List[CardBase]  # Preview of imported cards

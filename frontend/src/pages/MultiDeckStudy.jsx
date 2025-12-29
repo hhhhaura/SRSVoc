@@ -1,20 +1,21 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Loader2, RotateCcw, Check, HelpCircle } from 'lucide-react';
-import { getStudyCards, reviewCard } from '../api/study';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
+import { ArrowLeft, Loader2, Check, HelpCircle, Sparkles } from 'lucide-react';
+import { getMultiDeckStudyCards, reviewCard } from '../api/study';
 import FlipCard from '../components/FlipCard';
 import ClozeCard from '../components/ClozeCard';
 import Tooltip from '../components/Tooltip';
 import { useSettings } from '../context/SettingsContext';
 
-const Study = () => {
-  const { deckId } = useParams();
+const MultiDeckStudy = () => {
   const [searchParams] = useSearchParams();
+  const deckIdsParam = searchParams.get('decks') || '';
   const studyMode = searchParams.get('mode') || 'due';
   const preferredCardMode = searchParams.get('cardMode') || 'flashcard';
   const limitParam = searchParams.get('limit');
+  const aiClozeParam = searchParams.get('aiCloze') === 'true';
   const navigate = useNavigate();
-  const { settings } = useSettings();
+  const { settings, updateSettings } = useSettings();
   const [cards, setCards] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -22,14 +23,27 @@ const Study = () => {
   const [showRating, setShowRating] = useState(false);
   const [cardMode, setCardMode] = useState(preferredCardMode);
   const [completed, setCompleted] = useState(false);
-  const [clozeResult, setClozeResult] = useState(null); // null = not answered, true = correct, false = wrong
+  const [clozeResult, setClozeResult] = useState(null);
+
+  const deckIds = deckIdsParam.split(',').map(id => parseInt(id)).filter(id => !isNaN(id));
+
+  // Temporarily enable AI cloze mode if requested via URL param
+  useEffect(() => {
+    if (aiClozeParam && !settings.clozeAIGenMode) {
+      updateSettings({ clozeAIGenMode: true });
+    }
+  }, [aiClozeParam]);
 
   useEffect(() => {
     const fetchCards = async () => {
+      if (deckIds.length === 0) {
+        navigate('/');
+        return;
+      }
+
       try {
-        // Use limit from URL params, or 0 for "all" mode (no limit)
-        const limit = studyMode === 'all' ? 0 : (limitParam ? parseInt(limitParam) : 15);
-        const data = await getStudyCards(deckId, studyMode, limit);
+        const limit = limitParam ? parseInt(limitParam) : 20;
+        const data = await getMultiDeckStudyCards(deckIds, studyMode, limit);
         setCards(data);
         if (data.length === 0) {
           setCompleted(true);
@@ -42,10 +56,9 @@ const Study = () => {
       }
     };
     fetchCards();
-  }, [deckId, studyMode, limitParam]);
+  }, [deckIdsParam, studyMode, limitParam]);
 
   const currentCard = cards[currentIndex];
-  // Check if any example has cloze markers
   const hasCloze = currentCard?.examples?.some(ex => ex.sentence?.includes('*'));
 
   const handleFlip = (flipped) => {
@@ -58,14 +71,11 @@ const Study = () => {
   const handleClozeResult = (correct) => {
     setClozeResult(correct);
     if (correct) {
-      // Show difficulty buttons for correct answers
       setShowRating(true);
     }
-    // For wrong answers, we'll show a Next button instead
   };
 
   const handleClozeNext = async () => {
-    // Wrong answer - apply penalty (quality 0 = forgot)
     try {
       await reviewCard(currentCard.id, 0);
       moveToNextCard();
@@ -87,15 +97,12 @@ const Study = () => {
 
   const handleRating = async (quality) => {
     try {
-      // Apply cloze multiplier if in cloze mode
       let effectiveQuality = quality;
       if (cardMode === 'cloze' && quality > 0) {
-        // Boost quality for cloze mode (capped at 5)
         effectiveQuality = Math.min(5, Math.round(quality * settings.clozeScoreMultiplier));
       }
       
       await reviewCard(currentCard.id, effectiveQuality);
-      
       moveToNextCard();
     } catch (error) {
       console.error('Failed to submit review:', error);
@@ -120,15 +127,15 @@ const Study = () => {
           <h2 className="text-2xl font-bold text-gray-800 mb-2">Session Complete!</h2>
           <p className="text-gray-500 mb-6">
             {cards.length > 0 
-              ? `You reviewed ${cards.length} cards`
+              ? `You reviewed ${cards.length} cards from ${deckIds.length} decks`
               : 'No cards due for review'}
           </p>
           <Link
-            to={`/deck/${deckId}`}
+            to="/"
             className="inline-flex items-center gap-2 bg-indigo-600 text-white px-6 py-3 rounded-xl font-medium hover:bg-indigo-700 transition-colors"
           >
             <ArrowLeft size={20} />
-            Back to Deck
+            Back to Library
           </Link>
         </div>
       </div>
@@ -140,7 +147,7 @@ const Study = () => {
       <div className="max-w-2xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
-          <Link to={`/deck/${deckId}`} className="p-2 hover:bg-gray-100 rounded-xl transition-colors">
+          <Link to="/" className="p-2 hover:bg-gray-100 rounded-xl transition-colors">
             <ArrowLeft size={24} className="text-gray-600" />
           </Link>
           <div className="text-center">
@@ -159,16 +166,22 @@ const Study = () => {
           />
         </div>
 
-        {/* Study Mode Indicator */}
-        {studyMode === 'all' && (
-          <div className="bg-purple-100 text-purple-700 px-4 py-2 rounded-xl text-sm font-medium text-center mb-4">
-            📚 Practice Mode - Reviewing all cards
-          </div>
-        )}
+        {/* Multi-deck indicator */}
+        <div className="bg-purple-100 text-purple-700 px-4 py-2 rounded-xl text-sm font-medium text-center mb-4">
+          📚 Multi-Deck Study - {deckIds.length} decks combined
+        </div>
 
-        {/* Current Mode Indicator (locked for session) */}
-        <div className="bg-gray-100 text-gray-700 px-4 py-2 rounded-xl text-sm font-medium text-center mb-4">
-          {cardMode === 'flashcard' ? '📇 Flashcard Mode' : '✏️ Fill in Blank Mode'}
+        {/* Current Mode Indicator */}
+        <div className={`px-4 py-2 rounded-xl text-sm font-medium text-center mb-4 flex items-center justify-center gap-2 ${
+          aiClozeParam ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-700'
+        }`}>
+          {cardMode === 'flashcard' ? (
+            '📇 Flashcard Mode'
+          ) : aiClozeParam ? (
+            <><Sparkles size={16} /> AI Cloze Mode</>
+          ) : (
+            '✏️ Fill in Blank Mode'
+          )}
         </div>
 
         {/* Card Display */}
@@ -185,7 +198,6 @@ const Study = () => {
           ) : (
             <ClozeCard
               key={currentCard.id}
-              cardId={currentCard.id}
               examples={currentCard.examples}
               word={currentCard.word}
               definition={currentCard.definition}
@@ -205,12 +217,12 @@ const Study = () => {
           </button>
         )}
 
-        {/* Rating Buttons - show for flashcard mode OR correct cloze */}
+        {/* Rating Buttons */}
         {showRating && (cardMode === 'flashcard' || (cardMode === 'cloze' && clozeResult === true)) && (
           <div className="space-y-3">
             <div className="flex items-center justify-center gap-2">
               <p className="text-gray-500 text-sm">How well did you know this?</p>
-              <Tooltip text="Your rating affects when you'll see this card again. 'Forgot' = review soon, 'Easy' = review later" position="top">
+              <Tooltip text="Your rating affects when you'll see this card again." position="top">
                 <HelpCircle size={14} className="text-gray-400" />
               </Tooltip>
             </div>
@@ -255,4 +267,4 @@ const Study = () => {
   );
 };
 
-export default Study;
+export default MultiDeckStudy;

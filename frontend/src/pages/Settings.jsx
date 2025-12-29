@@ -103,7 +103,7 @@ const Settings = () => {
             <h2 className="text-lg font-semibold text-gray-800 mb-4">Study Settings</h2>
 
             {/* Cloze score multiplier */}
-            <div>
+            <div className="mb-6">
               <div className="flex items-center gap-2 mb-2">
                 <label className="text-sm font-medium text-gray-700">Cloze Score Multiplier</label>
                 <Tooltip text="Cloze (fill-in-blank) is harder, so ratings are boosted. 1.5x means 'Good' in cloze ≈ 'Easy' in flashcard." position="right">
@@ -127,6 +127,72 @@ const Settings = () => {
               <p className="text-xs text-gray-400 mt-2">
                 At {localSettings.clozeScoreMultiplier.toFixed(1)}x: Cloze "Good" (4) → Effective score: {(4 * localSettings.clozeScoreMultiplier).toFixed(1)}
               </p>
+            </div>
+
+            {/* Show First Letter Hint */}
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium text-gray-700">Show First Letter Hint</label>
+                <Tooltip text="Display the first letter of the answer in cloze mode blanks" position="right">
+                  <HelpCircle size={14} className="text-gray-400" />
+                </Tooltip>
+              </div>
+              <button
+                onClick={() => setLocalSettings({ ...localSettings, showFirstLetterHint: !localSettings.showFirstLetterHint })}
+                className={`relative w-12 h-6 rounded-full transition-colors ${
+                  localSettings.showFirstLetterHint ? 'bg-indigo-600' : 'bg-gray-300'
+                }`}
+              >
+                <span
+                  className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${
+                    localSettings.showFirstLetterHint ? 'translate-x-7' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* Show Chinese Translation in Cloze */}
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium text-gray-700">Show Translation in Cloze</label>
+                <Tooltip text="Display the Chinese translation of the example sentence while answering in cloze mode" position="right">
+                  <HelpCircle size={14} className="text-gray-400" />
+                </Tooltip>
+              </div>
+              <button
+                onClick={() => setLocalSettings({ ...localSettings, showClozeTranslation: !localSettings.showClozeTranslation })}
+                className={`relative w-12 h-6 rounded-full transition-colors ${
+                  localSettings.showClozeTranslation ? 'bg-indigo-600' : 'bg-gray-300'
+                }`}
+              >
+                <span
+                  className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${
+                    localSettings.showClozeTranslation ? 'translate-x-7' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* AI Gen Mode for Cloze */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium text-gray-700">AI Gen Mode (Cloze)</label>
+                <Tooltip text="Generate fresh AI examples for each card in cloze mode. Only unseen examples are shown per session." position="right">
+                  <HelpCircle size={14} className="text-gray-400" />
+                </Tooltip>
+              </div>
+              <button
+                onClick={() => setLocalSettings({ ...localSettings, clozeAIGenMode: !localSettings.clozeAIGenMode })}
+                className={`relative w-12 h-6 rounded-full transition-colors ${
+                  localSettings.clozeAIGenMode ? 'bg-purple-600' : 'bg-gray-300'
+                }`}
+              >
+                <span
+                  className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${
+                    localSettings.clozeAIGenMode ? 'translate-x-7' : 'translate-x-1'
+                  }`}
+                />
+              </button>
             </div>
           </div>
 

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Text
+from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Text, JSON
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from database import Base
@@ -49,8 +49,8 @@ class Card(Base):
     deck_id = Column(Integer, ForeignKey("decks.id"), nullable=False)
     word = Column(String(200), nullable=False)
     definition = Column(Text, nullable=False)
-    chinese_translation = Column(Text, nullable=True)
-    example_sentence = Column(Text, nullable=True)
+    synonyms = Column(JSON, nullable=True)  # List of synonyms: ["syn1", "syn2"]
+    examples = Column(JSON, nullable=True)  # List of examples: [{"sentence": "...*word*...", "translation": "中文"}, ...]
     
     # SM-2 Algorithm fields
     interval = Column(Integer, default=0)  # Days until next review

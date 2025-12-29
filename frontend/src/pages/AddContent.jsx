@@ -199,7 +199,7 @@ const AddContent = () => {
                 Upload CSV File (optional)
               </label>
               <p className="text-xs text-gray-400 mb-2">
-                CSV format: <code className="bg-gray-100 px-1 rounded">word,definition,example</code>
+                CSV format: <code className="bg-gray-100 px-1 rounded">word, meaning, synonym(s), (example, trans) pairs</code>
               </p>
               <input
                 type="file"
@@ -223,15 +223,13 @@ const AddContent = () => {
                 Or paste cards below (one per line)
               </label>
               <p className="text-xs text-gray-400 mb-2">
-                Format: <code className="bg-gray-100 px-1 rounded">word | definition | example | 中文</code> (4th column optional)
+                <strong>Format:</strong> <code className="bg-gray-100 px-1 rounded">word || meaning || syn1, syn2 || (example1, trans1), (example2, trans2)...</code>
               </p>
               <textarea
                 value={importText}
                 onChange={(e) => setImportText(e.target.value)}
-                placeholder={`apple | a round fruit | He ate an *apple* yesterday. | 苹果
-banana | a yellow fruit | She likes *bananas*. | 香蕉
-hello | a greeting | *Hello*, how are you?
-world | the earth | The *world* is beautiful.`}
+                placeholder={`apple || 苹果 || fruit, produce || (He ate an *apple* yesterday., 他昨天吃了一个苹果。), (*Apples* are healthy., 苹果很健康。)
+hello || 你好 || hi, greetings || (*Hello*, how are you?, 你好，你好吗？)`}
                 className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none resize-none font-mono text-sm"
                 rows={8}
                 required
@@ -248,6 +246,7 @@ world | the earth | The *world* is beautiful.`}
             </button>
           </form>
         )}
+
       </div>
       <BottomNav />
     </div>

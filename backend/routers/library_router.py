@@ -314,11 +314,17 @@ async def create_card(
     if not deck:
         raise HTTPException(status_code=404, detail="Deck not found")
     
+    # Convert examples to dict format for JSON storage
+    examples_data = None
+    if card_data.examples:
+        examples_data = [ex.model_dump() for ex in card_data.examples]
+    
     card = Card(
         deck_id=deck_id,
         word=card_data.word,
         definition=card_data.definition,
-        example_sentence=card_data.example_sentence
+        synonyms=card_data.synonyms,
+        examples=examples_data
     )
     db.add(card)
     db.commit()
@@ -347,8 +353,10 @@ async def update_card(
         card.word = card_data.word
     if card_data.definition is not None:
         card.definition = card_data.definition
-    if card_data.example_sentence is not None:
-        card.example_sentence = card_data.example_sentence
+    if card_data.synonyms is not None:
+        card.synonyms = card_data.synonyms
+    if card_data.examples is not None:
+        card.examples = [ex.model_dump() for ex in card_data.examples]
     
     db.commit()
     db.refresh(card)

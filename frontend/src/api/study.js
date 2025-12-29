@@ -24,3 +24,13 @@ export const importCardsCSV = async (deckId, csvData) => {
   const response = await api.post('/import/csv', { deck_id: deckId, csv_data: csvData });
   return response.data;
 };
+
+export const getMultiDeckStudyCards = async (deckIds, mode = 'due', limit = 15) => {
+  const response = await api.post('/study/multi', { deck_ids: deckIds, mode, limit });
+  return response.data;
+};
+
+export const generateAIExamples = async (word, definition) => {
+  const response = await api.post('/ai/generate-examples', { word, definition });
+  return response.data;
+};

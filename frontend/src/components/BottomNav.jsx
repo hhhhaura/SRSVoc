@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Library, Plus, LogOut, Settings, ClipboardList } from 'lucide-react';
+import { Library, Plus, LogOut, Settings, GraduationCap } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const BottomNav = () => {
@@ -32,8 +32,8 @@ const BottomNav = () => {
                 : 'text-gray-500 hover:text-indigo-600'
             }`}
           >
-            <ClipboardList size={22} />
-            <span className="text-xs mt-1 font-medium">Today</span>
+            <GraduationCap size={22} />
+            <span className="text-xs mt-1 font-medium">Study</span>
           </Link>
           
           <Link

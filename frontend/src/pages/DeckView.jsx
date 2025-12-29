@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Play, Plus, Trash2, Edit2, Loader2, RotateCcw, BookOpen, HelpCircle, CheckSquare, Square, X } from 'lucide-react';
-import { getDeck, getCards, deleteDeck, deleteCard, createCard } from '../api/library';
-import { resetDeckProgress } from '../api/study';
+import { ArrowLeft, Play, Plus, Trash2, Edit2, Loader2, RotateCcw, BookOpen, HelpCircle, CheckSquare, Square, X, ChevronDown, ChevronUp, Sparkles } from 'lucide-react';
+import { getDeck, getCards, deleteDeck, deleteCard, createCard, updateCard } from '../api/library';
+import { resetDeckProgress, generateAIExamples } from '../api/study';
 import ProgressBar from '../components/ProgressBar';
 import BottomNav from '../components/BottomNav';
 import Tooltip from '../components/Tooltip';
@@ -17,10 +17,19 @@ const DeckView = () => {
   const [cards, setCards] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddCard, setShowAddCard] = useState(false);
-  const [newCard, setNewCard] = useState({ word: '', definition: '', example_sentence: '' });
+  const [newCard, setNewCard] = useState({ word: '', definition: '', synonymsText: '', examples: [] });
   const [showStudyOptions, setShowStudyOptions] = useState(false);
   const [selectMode, setSelectMode] = useState(false);
   const [selectedCards, setSelectedCards] = useState(new Set());
+  const [expandedCards, setExpandedCards] = useState(new Set());
+  const [editingCard, setEditingCard] = useState(null);
+  const [editForm, setEditForm] = useState({
+    word: '',
+    definition: '',
+    synonymsText: '',
+    examples: []
+  });
+  const [aiLoading, setAiLoading] = useState(false);
 
   const fetchData = async () => {
     try {
@@ -68,9 +77,26 @@ const DeckView = () => {
     e.preventDefault();
     if (!newCard.word.trim() || !newCard.definition.trim()) return;
 
+    const synonyms = newCard.synonymsText
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean);
+
+    const examples = newCard.examples
+      .map(ex => ({
+        sentence: (ex.sentence || '').trim(),
+        translation: (ex.translation || '').trim() || null
+      }))
+      .filter(ex => ex.sentence);
+
     try {
-      await createCard(deckId, newCard);
-      setNewCard({ word: '', definition: '', example_sentence: '' });
+      await createCard(deckId, {
+        word: newCard.word.trim(),
+        definition: newCard.definition.trim(),
+        synonyms: synonyms.length > 0 ? synonyms : null,
+        examples: examples.length > 0 ? examples : null
+      });
+      setNewCard({ word: '', definition: '', synonymsText: '', examples: [] });
       setShowAddCard(false);
       fetchData();
     } catch (error) {
@@ -137,7 +163,90 @@ const DeckView = () => {
   };
 
   // Check if any cards have cloze markers
-  const hasClozeCards = cards.some(card => card.example_sentence?.includes('*'));
+  const hasClozeCards = cards.some(card => card.examples?.some(ex => ex.sentence?.includes('*')));
+
+  const toggleCardExpand = (cardId) => {
+    setExpandedCards(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(cardId)) {
+        newSet.delete(cardId);
+      } else {
+        newSet.add(cardId);
+      }
+      return newSet;
+    });
+  };
+
+  const openEditModal = (card) => {
+    setEditingCard(card);
+    setEditForm({
+      word: card.word || '',
+      definition: card.definition || '',
+      synonymsText: (card.synonyms || []).join(', '),
+      examples: (card.examples || []).map(ex => ({
+        sentence: ex?.sentence || '',
+        translation: ex?.translation || ''
+      }))
+    });
+  };
+
+  const closeEditModal = () => {
+    setEditingCard(null);
+    setEditForm({ word: '', definition: '', synonymsText: '', examples: [] });
+  };
+
+  const updateExampleField = (index, field, value) => {
+    setEditForm(prev => {
+      const nextExamples = [...prev.examples];
+      nextExamples[index] = { ...nextExamples[index], [field]: value };
+      return { ...prev, examples: nextExamples };
+    });
+  };
+
+  const addExampleRow = () => {
+    setEditForm(prev => ({
+      ...prev,
+      examples: [...prev.examples, { sentence: '', translation: '' }]
+    }));
+  };
+
+  const removeExampleRow = (index) => {
+    setEditForm(prev => ({
+      ...prev,
+      examples: prev.examples.filter((_, i) => i !== index)
+    }));
+  };
+
+  const handleSaveEdit = async (e) => {
+    e?.preventDefault?.();
+    if (!editingCard) return;
+    if (!editForm.word.trim() || !editForm.definition.trim()) return;
+
+    const synonyms = editForm.synonymsText
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean);
+
+    const examples = editForm.examples
+      .map(ex => ({
+        sentence: (ex.sentence || '').trim(),
+        translation: (ex.translation || '').trim() || null
+      }))
+      .filter(ex => ex.sentence);
+
+    try {
+      await updateCard(editingCard.id, {
+        word: editForm.word.trim(),
+        definition: editForm.definition.trim(),
+        synonyms: synonyms.length > 0 ? synonyms : null,
+        examples: examples.length > 0 ? examples : null
+      });
+      closeEditModal();
+      fetchData();
+    } catch (error) {
+      console.error('Failed to update card:', error);
+    }
+  };
 
   if (loading) {
     return (
@@ -241,24 +350,112 @@ const DeckView = () => {
               type="text"
               value={newCard.word}
               onChange={(e) => setNewCard({ ...newCard, word: e.target.value })}
-              placeholder="Word (front)"
+              placeholder="Word"
               className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
               autoFocus
             />
             <textarea
               value={newCard.definition}
               onChange={(e) => setNewCard({ ...newCard, definition: e.target.value })}
-              placeholder="Definition (back)"
+              placeholder="Meaning"
               className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none resize-none"
               rows={2}
             />
             <input
               type="text"
-              value={newCard.example_sentence}
-              onChange={(e) => setNewCard({ ...newCard, example_sentence: e.target.value })}
-              placeholder="Example sentence (use *word* for cloze)"
+              value={newCard.synonymsText}
+              onChange={(e) => setNewCard({ ...newCard, synonymsText: e.target.value })}
+              placeholder="Synonyms (comma-separated)"
               className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
             />
+            
+            {/* Examples */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium text-gray-700">Examples</label>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!newCard.word.trim() || !newCard.definition.trim()) return;
+                      setAiLoading(true);
+                      try {
+                        const result = await generateAIExamples(newCard.word.trim(), newCard.definition.trim());
+                        if (result?.examples && result.examples.length > 0) {
+                          setNewCard(prev => ({
+                            ...prev,
+                            examples: [
+                              ...prev.examples,
+                              ...result.examples.map(ex => ({
+                                sentence: ex.sentence || '',
+                                translation: ex.translation || ''
+                              }))
+                            ]
+                          }));
+                        }
+                      } catch (error) {
+                        console.error('AI generation failed:', error);
+                        alert('Failed to generate examples. Please try again.');
+                      } finally {
+                        setAiLoading(false);
+                      }
+                    }}
+                    disabled={aiLoading || !newCard.word.trim() || !newCard.definition.trim()}
+                    className="flex items-center gap-1 text-sm text-purple-600 hover:text-purple-700 disabled:text-gray-400"
+                  >
+                    {aiLoading ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                    AI Generate
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNewCard({ ...newCard, examples: [...newCard.examples, { sentence: '', translation: '' }] })}
+                    className="text-sm text-indigo-600 hover:text-indigo-700"
+                  >
+                    + Add example
+                  </button>
+                </div>
+              </div>
+              {newCard.examples.map((ex, idx) => (
+                <div key={idx} className="bg-gray-50 rounded-xl p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-gray-500">Example {idx + 1}</span>
+                    <button
+                      type="button"
+                      onClick={() => setNewCard({ ...newCard, examples: newCard.examples.filter((_, i) => i !== idx) })}
+                      className="text-xs text-gray-500 hover:text-red-600"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    value={ex.sentence}
+                    onChange={(e) => {
+                      const updated = [...newCard.examples];
+                      updated[idx] = { ...updated[idx], sentence: e.target.value };
+                      setNewCard({ ...newCard, examples: updated });
+                    }}
+                    placeholder="Sentence (wrap target with *word*)"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+                  />
+                  <input
+                    type="text"
+                    value={ex.translation}
+                    onChange={(e) => {
+                      const updated = [...newCard.examples];
+                      updated[idx] = { ...updated[idx], translation: e.target.value };
+                      setNewCard({ ...newCard, examples: updated });
+                    }}
+                    placeholder="Chinese translation (optional)"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+                  />
+                </div>
+              ))}
+              {newCard.examples.length === 0 && (
+                <p className="text-sm text-gray-400">No examples yet.</p>
+              )}
+            </div>
+
             <div className="flex gap-2">
               <button
                 type="submit"
@@ -270,7 +467,7 @@ const DeckView = () => {
                 type="button"
                 onClick={() => {
                   setShowAddCard(false);
-                  setNewCard({ word: '', definition: '', example_sentence: '' });
+                  setNewCard({ word: '', definition: '', synonymsText: '', examples: [] });
                 }}
                 className="flex-1 bg-gray-100 text-gray-600 py-2 rounded-xl font-medium hover:bg-gray-200 transition-colors"
               >
@@ -320,50 +517,109 @@ const DeckView = () => {
 
         {/* Cards List */}
         <div className="space-y-3">
-          {cards.map(card => (
-            <div 
-              key={card.id} 
-              className={`bg-white rounded-xl shadow p-4 ${selectMode ? 'cursor-pointer' : ''} ${selectedCards.has(card.id) ? 'ring-2 ring-indigo-500' : ''}`}
-              onClick={selectMode ? () => toggleCardSelection(card.id) : undefined}
-            >
-              <div className="flex items-start justify-between">
-                {selectMode && (
-                  <div className="mr-3 mt-1">
-                    {selectedCards.has(card.id) ? (
-                      <CheckSquare size={20} className="text-indigo-600" />
-                    ) : (
-                      <Square size={20} className="text-gray-400" />
+          {cards.map(card => {
+            const isExpanded = expandedCards.has(card.id);
+            const hasDetails = (card.synonyms && card.synonyms.length > 0) || (card.examples && card.examples.length > 0);
+            
+            return (
+              <div 
+                key={card.id} 
+                className={`bg-white rounded-xl shadow p-4 ${selectMode ? 'cursor-pointer' : ''} ${selectedCards.has(card.id) ? 'ring-2 ring-indigo-500' : ''}`}
+                onClick={selectMode ? () => toggleCardSelection(card.id) : undefined}
+              >
+                <div className="flex items-start justify-between">
+                  {selectMode && (
+                    <div className="mr-3 mt-1">
+                      {selectedCards.has(card.id) ? (
+                        <CheckSquare size={20} className="text-indigo-600" />
+                      ) : (
+                        <Square size={20} className="text-gray-400" />
+                      )}
+                    </div>
+                  )}
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-semibold text-gray-800">{card.word}</h3>
+                      {!selectMode && <SpeakButton text={card.word} size={16} />}
+                    </div>
+                    <p className="text-gray-600 text-sm mt-1">{card.definition}</p>
+                    
+                    {/* Expanded details */}
+                    {isExpanded && (
+                      <div className="mt-3 pt-3 border-t border-gray-100 space-y-2">
+                        {card.examples && card.examples.length > 0 && (
+                          <div className="space-y-2">
+                            <span className="text-gray-500 text-sm font-medium">Examples:</span>
+                            {card.examples.map((ex, idx) => (
+                              <div key={idx} className="pl-3 border-l-2 border-indigo-200">
+                                <div className="flex items-center gap-2">
+                                  <p className="text-gray-600 text-sm">{ex.sentence?.replace(/\*/g, '')}</p>
+                                  <SpeakButton text={ex.sentence?.replace(/\*/g, '')} size={14} />
+                                </div>
+                                {ex.translation && (
+                                  <p className="text-indigo-600 text-xs mt-1">{ex.translation}</p>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {card.synonyms && card.synonyms.length > 0 && (
+                          <p className="text-gray-500 text-sm">
+                            <span className="font-medium">Synonyms:</span> {card.synonyms.join(', ')}
+                          </p>
+                        )}
+                      </div>
                     )}
                   </div>
-                )}
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-semibold text-gray-800">{card.word}</h3>
-                    {!selectMode && <SpeakButton text={card.word} size={16} />}
-                  </div>
-                  <p className="text-gray-600 text-sm mt-1">{card.definition}</p>
-                  {card.example_sentence && (
-                    <div className="flex items-center gap-2 mt-2">
-                      <p className="text-gray-400 text-sm italic">{card.example_sentence.replace(/\*/g, '')}</p>
-                      {!selectMode && <SpeakButton text={card.example_sentence.replace(/\*/g, '')} size={14} />}
+
+                  {!selectMode && (
+                    <div className="flex flex-col items-end gap-1">
+                      {hasDetails && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleCardExpand(card.id);
+                          }}
+                          className="p-2 text-gray-400 hover:text-indigo-600 transition-colors"
+                          aria-label={isExpanded ? 'Hide details' : 'Show details'}
+                        >
+                          {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                        </button>
+                      )}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openEditModal(card);
+                        }}
+                        className="p-2 text-gray-400 hover:text-gray-700 transition-colors"
+                        aria-label="Edit card"
+                      >
+                        <Edit2 size={18} />
+                      </button>
                     </div>
                   )}
                 </div>
-                {!selectMode && (
-                  <button
-                    onClick={() => handleDeleteCard(card.id)}
-                    className="p-2 text-gray-400 hover:text-red-500 transition-colors"
-                  >
-                    <Trash2 size={18} />
-                  </button>
-                )}
+                <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100 text-xs text-gray-400">
+                  <div className="flex items-center gap-4">
+                    <span>Interval: {card.interval} days</span>
+                    <span>EF: {card.ease_factor.toFixed(2)}</span>
+                  </div>
+                  {!selectMode && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteCard(card.id);
+                      }}
+                      className="p-2 -my-2 text-gray-400 hover:text-red-500 transition-colors"
+                      aria-label="Delete card"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  )}
+                </div>
               </div>
-              <div className="flex items-center gap-4 mt-3 pt-3 border-t border-gray-100 text-xs text-gray-400">
-                <span>Interval: {card.interval} days</span>
-                <span>EF: {card.ease_factor.toFixed(2)}</span>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {cards.length === 0 && (
@@ -383,6 +639,157 @@ const DeckView = () => {
         totalCards={cards.length}
         hasClozeCards={hasClozeCards}
       />
+
+      {/* Edit Card Modal */}
+      {editingCard && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <h3 className="font-semibold text-gray-800">Edit Card</h3>
+              <button
+                onClick={closeEditModal}
+                className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
+                aria-label="Close"
+              >
+                <X size={20} className="text-gray-500" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEdit} className="p-6 space-y-4 overflow-y-auto">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Word</label>
+                <input
+                  type="text"
+                  value={editForm.word}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, word: e.target.value }))}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Meaning</label>
+                <textarea
+                  value={editForm.definition}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, definition: e.target.value }))}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none resize-none"
+                  rows={2}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Synonyms (comma-separated)</label>
+                <input
+                  type="text"
+                  value={editForm.synonymsText}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, synonymsText: e.target.value }))}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+                  placeholder="syn1, syn2"
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-medium text-gray-700">Examples</label>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (!editForm.word.trim() || !editForm.definition.trim()) return;
+                        setAiLoading(true);
+                        try {
+                          const result = await generateAIExamples(editForm.word.trim(), editForm.definition.trim());
+                          if (result?.examples && result.examples.length > 0) {
+                            setEditForm(prev => ({
+                              ...prev,
+                              examples: [
+                                ...prev.examples,
+                                ...result.examples.map(ex => ({
+                                  sentence: ex.sentence || '',
+                                  translation: ex.translation || ''
+                                }))
+                              ]
+                            }));
+                          }
+                        } catch (error) {
+                          console.error('AI generation failed:', error);
+                          alert('Failed to generate examples. Please try again.');
+                        } finally {
+                          setAiLoading(false);
+                        }
+                      }}
+                      disabled={aiLoading || !editForm.word.trim() || !editForm.definition.trim()}
+                      className="flex items-center gap-1 text-sm text-purple-600 hover:text-purple-700 disabled:text-gray-400"
+                    >
+                      {aiLoading ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                      AI Generate
+                    </button>
+                    <button
+                      type="button"
+                      onClick={addExampleRow}
+                      className="text-sm text-indigo-600 hover:text-indigo-700"
+                    >
+                      + Add example
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  {editForm.examples.map((ex, idx) => (
+                    <div key={idx} className="bg-gray-50 rounded-xl p-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium text-gray-500">Example {idx + 1}</span>
+                        <button
+                          type="button"
+                          onClick={() => removeExampleRow(idx)}
+                          className="text-xs text-gray-500 hover:text-red-600"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                      <input
+                        type="text"
+                        value={ex.sentence}
+                        onChange={(e) => updateExampleField(idx, 'sentence', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+                        placeholder="Sentence (wrap target with *word*)"
+                      />
+                      <input
+                        type="text"
+                        value={ex.translation}
+                        onChange={(e) => updateExampleField(idx, 'translation', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+                        placeholder="Chinese translation (optional)"
+                      />
+                    </div>
+                  ))}
+
+                  {editForm.examples.length === 0 && (
+                    <div className="text-sm text-gray-400">No examples yet.</div>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="submit"
+                  disabled={!editForm.word.trim() || !editForm.definition.trim()}
+                  className="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-medium hover:bg-indigo-700 transition-colors disabled:bg-indigo-400"
+                >
+                  Save
+                </button>
+                <button
+                  type="button"
+                  onClick={closeEditModal}
+                  className="flex-1 bg-gray-100 text-gray-600 py-3 rounded-xl font-medium hover:bg-gray-200 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       <BottomNav />
     </div>

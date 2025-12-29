@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import SpeakButton from './SpeakButton';
 
-const FlipCard = ({ front, back, sentence, chinese, onFlip }) => {
+const FlipCard = ({ front, back, examples, synonyms, onFlip }) => {
   const [isFlipped, setIsFlipped] = useState(false);
 
   const handleFlip = (e) => {
@@ -11,8 +11,11 @@ const FlipCard = ({ front, back, sentence, chinese, onFlip }) => {
     if (onFlip) onFlip(!isFlipped);
   };
 
-  // Clean sentence for display (remove cloze markers)
-  const cleanSentence = sentence ? sentence.replace(/\*/g, '') : null;
+  // Clean sentences for display (remove cloze markers)
+  const cleanExamples = examples?.map(ex => ({
+    sentence: ex.sentence?.replace(/\*/g, '') || '',
+    translation: ex.translation || ''
+  })) || [];
 
   return (
     <div 
@@ -28,24 +31,49 @@ const FlipCard = ({ front, back, sentence, chinese, onFlip }) => {
                 <SpeakButton text={front} size={22} />
               </div>
             </div>
-            {cleanSentence && (
-              <div className="mt-4 pt-4 border-t border-gray-100">
-                <div className="flex items-center justify-center gap-2">
-                  <p className="text-gray-600 italic text-sm">{cleanSentence}</p>
-                  <div className="speak-btn">
-                    <SpeakButton text={cleanSentence} size={16} />
+            {cleanExamples.length > 0 && (
+              <div className="mt-4 pt-4 border-t border-gray-100 space-y-2">
+                {cleanExamples.map((ex, idx) => (
+                  <div key={idx} className="flex items-center justify-center gap-2">
+                    <p className="text-gray-600 italic text-sm">{ex.sentence}</p>
+                    <div className="speak-btn">
+                      <SpeakButton text={ex.sentence} size={16} />
+                    </div>
                   </div>
-                </div>
+                ))}
               </div>
             )}
             <p className="text-sm text-gray-400 mt-4">Tap to flip</p>
           </div>
         </div>
-        <div className="flip-card-back bg-indigo-600 shadow-lg flex items-center justify-center p-6">
-          <div className="text-center text-white">
+        <div className="flip-card-back bg-indigo-600 shadow-lg flex items-center justify-center p-6 overflow-y-auto">
+          <div className="text-center text-white w-full">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <p className="text-2xl font-bold">{front}</p>
+              <div className="speak-btn">
+                <SpeakButton text={front} size={22} />
+              </div>
+            </div>
             <p className="text-xl font-medium">{back}</p>
-            {chinese && (
-              <p className="text-lg text-indigo-200 mt-2">{chinese}</p>
+            {synonyms && synonyms.length > 0 && (
+              <p className="text-indigo-200 text-sm mt-2">Synonyms: {synonyms.join(', ')}</p>
+            )}
+            {cleanExamples.length > 0 && (
+              <div className="mt-4 pt-4 border-t border-indigo-400 space-y-3">
+                {cleanExamples.map((ex, idx) => (
+                  <div key={idx} className="text-left">
+                    <div className="flex items-start gap-2">
+                      <p className="text-indigo-100 text-sm flex-1">{ex.sentence}</p>
+                      <div className="speak-btn mt-0.5">
+                        <SpeakButton text={ex.sentence} size={16} />
+                      </div>
+                    </div>
+                    {ex.translation && (
+                      <p className="text-indigo-300 text-xs mt-1">{ex.translation}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         </div>
