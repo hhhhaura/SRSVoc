@@ -14,22 +14,10 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS middleware
-allowed_origins = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "http://127.0.0.1:64931",
-    "https://srsvoc-app.netlify.app",
-]
-
-# Add frontend URL from environment variable if set
-frontend_url = os.getenv("FRONTEND_URL")
-if frontend_url:
-    allowed_origins.append(frontend_url)
-
+# CORS middleware - allow all origins for now
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed_origins,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
