@@ -205,15 +205,106 @@ async def import_cards(
     )
 
 
+import csv
+from io import StringIO
+
+
+def parse_csv_line(row: list) -> dict:
+    """Parse a CSV row into card data. Expects: word, meaning, [synonyms], [examples]"""
+    if len(row) < 2:
+        return None
+    
+    word = row[0].strip() if row[0] else ""
+    definition = row[1].strip() if len(row) > 1 and row[1] else ""
+    
+    if not word or not definition:
+        return None
+    
+    # Synonyms (semicolon-separated within the cell)
+    synonyms = None
+    if len(row) > 2 and row[2]:
+        synonyms_str = row[2].strip()
+        synonyms = [s.strip() for s in synonyms_str.split(';') if s.strip()]
+        if not synonyms:
+            synonyms = None
+    
+    # Examples (format: "sentence | translation; sentence2 | translation2")
+    examples = []
+    if len(row) > 3 and row[3]:
+        examples_str = row[3].strip()
+        # Split by semicolon for multiple examples
+        example_parts = examples_str.split(';')
+        for part in example_parts:
+            part = part.strip()
+            if not part:
+                continue
+            if '|' in part:
+                pair_parts = part.split('|', 1)
+                sentence = pair_parts[0].strip()
+                translation = pair_parts[1].strip() if len(pair_parts) > 1 else None
+                if sentence:
+                    examples.append({"sentence": sentence, "translation": translation})
+            elif part:
+                examples.append({"sentence": part, "translation": None})
+    
+    return {
+        "word": word,
+        "definition": definition,
+        "synonyms": synonyms,
+        "examples": examples if examples else None
+    }
+
+
+def parse_pipe_line(line: str) -> dict:
+    """Parse a pipe-separated line into card data."""
+    parts = line.split('||')
+    if len(parts) < 2:
+        return None
+    
+    word = parts[0].strip() if len(parts) > 0 else ""
+    definition = parts[1].strip() if len(parts) > 1 else ""
+    
+    if not word or not definition:
+        return None
+    
+    # Synonyms (comma-separated)
+    synonyms_str = parts[2].strip() if len(parts) > 2 else ""
+    synonyms = [s.strip() for s in synonyms_str.split(',') if s.strip()] if synonyms_str else None
+    
+    # Examples: (sentence | trans), (sentence | trans)...
+    examples = []
+    if len(parts) > 3:
+        examples_str = parts[3].strip()
+        pair_matches = re.findall(r'\(([^)]+)\)', examples_str)
+        for pair in pair_matches:
+            if '|' in pair:
+                pair_parts = pair.split('|', 1)
+                sentence = pair_parts[0].strip()
+                translation = pair_parts[1].strip() if len(pair_parts) > 1 else None
+                if sentence:
+                    examples.append({"sentence": sentence, "translation": translation})
+            elif pair.strip():
+                examples.append({"sentence": pair.strip(), "translation": None})
+    
+    return {
+        "word": word,
+        "definition": definition,
+        "synonyms": synonyms,
+        "examples": examples if examples else None
+    }
+
+
 @router.post("/import/csv", response_model=ImportResponse)
 async def import_cards_csv(
     import_data: CSVImportRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Import cards from pipe-separated format.
+    """Import cards from CSV or pipe-separated format.
     
-    Format: word || meaning || syn1, syn2 || (example1 | trans1), (example2 | trans2)...
+    Supports two formats:
+    1. Pipe format: word || meaning || syn1, syn2 || (example1 | trans1), (example2 | trans2)...
+    2. CSV format: word,meaning,syn1;syn2,example1 | trans1; example2 | trans2
     """
     deck = db.query(Deck).filter(
         Deck.id == import_data.deck_id,
@@ -224,54 +315,50 @@ async def import_cards_csv(
         raise HTTPException(status_code=404, detail="Deck not found")
     
     cards_to_add = []
-    lines = import_data.csv_data.strip().split('\n')
+    data = import_data.csv_data.strip()
     
-    for line in lines:
-        line = line.strip()
-        if not line:
-            continue
-        
-        # Check for new format (uses || as separator)
-        if '||' in line:
-            # New format: word || meaning || synonyms || (ex1 | trans1), (ex2 | trans2)...
-            parts = line.split('||')
-            if len(parts) >= 2:
-                word = parts[0].strip() if len(parts) > 0 else ""
-                definition = parts[1].strip() if len(parts) > 1 else ""
-                
-                # Synonyms (comma-separated)
-                synonyms_str = parts[2].strip() if len(parts) > 2 else ""
-                synonyms = [s.strip() for s in synonyms_str.split(',') if s.strip()] if synonyms_str else None
-                
-                # Examples: (sentence | trans), (sentence | trans)...
-                # Use regex to find all (...) pairs
-                examples = []
-                if len(parts) > 3:
-                    examples_str = parts[3].strip()
-                    # Find all (...) groups using regex
-                    pair_matches = re.findall(r'\(([^)]+)\)', examples_str)
-                    for pair in pair_matches:
-                        # Split by | to separate sentence and translation
-                        if '|' in pair:
-                            pair_parts = pair.split('|', 1)
-                            sentence = pair_parts[0].strip()
-                            translation = pair_parts[1].strip() if len(pair_parts) > 1 else None
-                            if sentence:
-                                examples.append({"sentence": sentence, "translation": translation})
-                        elif pair.strip():
-                            # No | found, just use as sentence
-                            examples.append({"sentence": pair.strip(), "translation": None})
-                
-                if word and definition:
+    # Detect format: if any line contains ||, use pipe format; otherwise try CSV
+    use_pipe_format = '||' in data
+    
+    if use_pipe_format:
+        # Pipe-separated format
+        lines = data.split('\n')
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            card_data = parse_pipe_line(line)
+            if card_data:
+                card = Card(
+                    deck_id=import_data.deck_id,
+                    word=card_data["word"],
+                    definition=card_data["definition"],
+                    synonyms=card_data["synonyms"],
+                    examples=card_data["examples"]
+                )
+                cards_to_add.append(card)
+    else:
+        # CSV format
+        try:
+            reader = csv.reader(StringIO(data))
+            for row in reader:
+                if not row or not any(cell.strip() for cell in row):
+                    continue
+                # Skip header row if it looks like a header
+                if row[0].lower().strip() in ['word', 'term', 'vocabulary', '單字', '詞彙']:
+                    continue
+                card_data = parse_csv_line(row)
+                if card_data:
                     card = Card(
                         deck_id=import_data.deck_id,
-                        word=word,
-                        definition=definition,
-                        synonyms=synonyms if synonyms else None,
-                        examples=examples if examples else None
+                        word=card_data["word"],
+                        definition=card_data["definition"],
+                        synonyms=card_data["synonyms"],
+                        examples=card_data["examples"]
                     )
                     cards_to_add.append(card)
-        
+        except csv.Error as e:
+            raise HTTPException(status_code=400, detail=f"Invalid CSV format: {str(e)}")
     
     if not cards_to_add:
         raise HTTPException(status_code=400, detail="No valid cards found in data")

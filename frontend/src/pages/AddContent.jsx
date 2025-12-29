@@ -199,12 +199,12 @@ const AddContent = () => {
                 Upload CSV File (optional)
               </label>
               <p className="text-xs text-gray-400 mb-2">
-                CSV format: <code className="bg-gray-100 px-1 rounded">word, meaning, synonym(s), (example, trans) pairs</code>
+                CSV format: <code className="bg-gray-100 px-1 rounded">word, meaning, synonyms, examples</code>
               </p>
               <input
                 type="file"
                 ref={fileInputRef}
-                accept=".csv"
+                accept=".csv,.txt"
                 onChange={handleFileUpload}
                 className="hidden"
               />
@@ -214,7 +214,7 @@ const AddContent = () => {
                 className="w-full flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 hover:border-indigo-500 hover:text-indigo-600 transition-colors"
               >
                 <FileText size={20} />
-                Click to upload .csv file
+                Click to upload .csv or .txt file
               </button>
             </div>
 
@@ -222,16 +222,22 @@ const AddContent = () => {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Or paste cards below (one per line)
               </label>
-              <p className="text-xs text-gray-400 mb-2">
-                <strong>Format:</strong> <code className="bg-gray-100 px-1 rounded">word || meaning || syn1, syn2 || (example1 | trans1), (example2 | trans2)...</code>
-              </p>
+              <div className="text-xs text-gray-400 mb-2 space-y-1">
+                <p><strong>CSV format:</strong> <code className="bg-gray-100 px-1 rounded">word,meaning,syn1;syn2,example1 | trans1; example2 | trans2</code></p>
+                <p><strong>Pipe format:</strong> <code className="bg-gray-100 px-1 rounded">word || meaning || syn1, syn2 || (example1 | trans1), (example2 | trans2)</code></p>
+              </div>
               <textarea
                 value={importText}
                 onChange={(e) => setImportText(e.target.value)}
-                placeholder={`apple || 苹果 || fruit, produce || (He ate an *apple* yesterday. | 他昨天吃了一个苹果。), (*Apples* are healthy. | 苹果很健康。)
-hello || 你好 || hi, greetings || (*Hello*, how are you? | 你好，你好吗？)`}
+                placeholder={`CSV format:
+apple,蘋果,fruit;produce,He ate an *apple*. | 他吃了一個蘋果。
+hello,你好,hi;greetings,*Hello* world! | 你好世界！
+
+Or pipe format:
+apple || 蘋果 || fruit, produce || (He ate an *apple*. | 他吃了一個蘋果。)
+hello || 你好 || hi, greetings || (*Hello* world! | 你好世界！)`}
                 className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none resize-none font-mono text-sm"
-                rows={8}
+                rows={10}
                 required
               />
             </div>
