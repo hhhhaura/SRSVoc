@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, FolderPlus, Loader2, HelpCircle, X, Folder, Trash2, CheckSquare, Square, BookOpen } from 'lucide-react';
+import { Plus, FolderPlus, Loader2, HelpCircle, X, Folder, Trash2, CheckSquare, Square } from 'lucide-react';
 import { getLibrary, createFolder, deleteFolder, createDeck, updateDeck, deleteDeck } from '../api/library';
 import FolderSection from '../components/FolderSection';
 import DeckCard from '../components/DeckCard';
@@ -169,14 +169,6 @@ const Library = () => {
                   className="text-sm text-indigo-600 hover:underline"
                 >
                   {selectedDecks.size === allDecks.length ? 'Deselect All' : 'Select All'}
-                </button>
-                <button
-                  onClick={() => navigate(`/study/multi?decks=${[...selectedDecks].join(',')}`)}
-                  disabled={selectedDecks.size === 0}
-                  className="flex items-center gap-1 px-3 py-2 bg-indigo-100 text-indigo-600 rounded-xl text-sm font-medium hover:bg-indigo-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <BookOpen size={16} />
-                  Study ({selectedDecks.size})
                 </button>
                 <button
                   onClick={handleBatchDeleteDecks}

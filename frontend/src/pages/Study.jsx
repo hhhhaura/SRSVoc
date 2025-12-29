@@ -15,7 +15,7 @@ const Study = () => {
   const limitParam = searchParams.get('limit');
   const aiClozeParam = searchParams.get('aiCloze') === 'true';
   const navigate = useNavigate();
-  const { settings, updateSettings } = useSettings();
+  const { settings } = useSettings();
   const [cards, setCards] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -26,13 +26,6 @@ const Study = () => {
   const [cardMode, setCardMode] = useState(preferredCardMode);
   const [completed, setCompleted] = useState(false);
   const [clozeResult, setClozeResult] = useState(null); // null = not answered, true = correct, false = wrong
-
-  // Enable AI cloze mode if requested via URL param
-  useEffect(() => {
-    if (aiClozeParam && !settings.clozeAIGenMode) {
-      updateSettings({ clozeAIGenMode: true });
-    }
-  }, [aiClozeParam]);
 
   useEffect(() => {
     const fetchCards = async () => {
