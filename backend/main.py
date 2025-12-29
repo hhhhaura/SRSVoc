@@ -6,9 +6,13 @@ from fastapi.responses import JSONResponse
 
 from database import engine, Base
 from routers import auth_router, library_router, study_router
+from migrate_db import migrate
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
+
+# Run migrations to add any missing columns
+migrate()
 
 app = FastAPI(
     title="SRS Vocabulary API",
