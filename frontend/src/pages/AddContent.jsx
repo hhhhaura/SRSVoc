@@ -223,13 +223,13 @@ const AddContent = () => {
                 Or paste cards below (one per line)
               </label>
               <p className="text-xs text-gray-400 mb-2">
-                <strong>Format:</strong> <code className="bg-gray-100 px-1 rounded">word || meaning || syn1, syn2 || (example1, trans1), (example2, trans2)...</code>
+                <strong>Format:</strong> <code className="bg-gray-100 px-1 rounded">word || meaning || syn1, syn2 || (example1 | trans1), (example2 | trans2)...</code>
               </p>
               <textarea
                 value={importText}
                 onChange={(e) => setImportText(e.target.value)}
-                placeholder={`apple || 苹果 || fruit, produce || (He ate an *apple* yesterday., 他昨天吃了一个苹果。), (*Apples* are healthy., 苹果很健康。)
-hello || 你好 || hi, greetings || (*Hello*, how are you?, 你好，你好吗？)`}
+                placeholder={`apple || 苹果 || fruit, produce || (He ate an *apple* yesterday. | 他昨天吃了一个苹果。), (*Apples* are healthy. | 苹果很健康。)
+hello || 你好 || hi, greetings || (*Hello*, how are you? | 你好，你好吗？)`}
                 className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none resize-none font-mono text-sm"
                 rows={8}
                 required

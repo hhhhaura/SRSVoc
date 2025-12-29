@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Play, HelpCircle } from 'lucide-react';
+import { X, Play, HelpCircle, Sparkles } from 'lucide-react';
 import Tooltip from './Tooltip';
 
 const StudyOptionsModal = ({ isOpen, onClose, onStart, deckName, dueCount, totalCards, hasClozeCards }) => {
@@ -44,37 +44,53 @@ const StudyOptionsModal = ({ isOpen, onClose, onStart, deckName, dueCount, total
           {/* Study Mode */}
           <div>
             <div className="flex items-center gap-2 mb-3">
-              <label className="text-sm font-medium text-gray-700">Study Mode</label>
-              <Tooltip text="Flashcard: flip to reveal answer. Fill in Blank: type the missing word." position="right">
+              <label className="text-sm font-medium text-gray-700">Card Mode</label>
+              <Tooltip text="Flashcard: flip to reveal. Cloze: type missing word. AI Cloze: AI generates fresh example sentences." position="right">
                 <HelpCircle size={14} className="text-gray-400" />
               </Tooltip>
             </div>
-            <div className="flex gap-2">
+            <div className="grid grid-cols-3 gap-2">
               <button
                 onClick={() => setCardMode('flashcard')}
-                className={`flex-1 py-3 rounded-xl font-medium transition-colors ${
+                className={`py-3 rounded-xl font-medium transition-colors text-sm ${
                   cardMode === 'flashcard'
                     ? 'bg-indigo-600 text-white'
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
               >
-                📇 Flashcard
+                📇 Flip
               </button>
               <button
                 onClick={() => setCardMode('cloze')}
                 disabled={!hasClozeCards}
-                className={`flex-1 py-3 rounded-xl font-medium transition-colors ${
+                className={`py-3 rounded-xl font-medium transition-colors text-sm ${
                   cardMode === 'cloze'
                     ? 'bg-indigo-600 text-white'
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 } ${!hasClozeCards ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
-                ✏️ Fill in Blank
+                ✏️ Cloze
+              </button>
+              <button
+                onClick={() => setCardMode('cloze-ai')}
+                className={`py-3 rounded-xl font-medium transition-colors text-sm flex items-center justify-center gap-1 ${
+                  cardMode === 'cloze-ai'
+                    ? 'bg-purple-600 text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                <Sparkles size={14} />
+                AI
               </button>
             </div>
-            {!hasClozeCards && (
+            {!hasClozeCards && cardMode === 'cloze' && (
               <p className="text-xs text-gray-400 mt-2">
-                Fill in Blank requires cards with example sentences containing *word* markers.
+                Cloze requires cards with example sentences containing *word* markers.
+              </p>
+            )}
+            {cardMode === 'cloze-ai' && (
+              <p className="text-xs text-purple-600 mt-2">
+                AI will generate fresh example sentences for each card.
               </p>
             )}
           </div>

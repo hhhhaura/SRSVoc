@@ -117,7 +117,12 @@ const DeckView = () => {
 
   const handleStartStudy = (options) => {
     const params = new URLSearchParams();
-    params.set('cardMode', options.cardMode);
+    // Handle AI cloze mode
+    const urlCardMode = options.cardMode === 'cloze-ai' ? 'cloze' : options.cardMode;
+    params.set('cardMode', urlCardMode);
+    if (options.cardMode === 'cloze-ai') {
+      params.set('aiCloze', 'true');
+    }
     params.set('limit', options.cardsPerSession);
     // If no cards due OR user wants more cards than are due, use "all" mode
     const dueCount = deck?.due_count || 0;

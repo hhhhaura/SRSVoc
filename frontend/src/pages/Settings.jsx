@@ -173,27 +173,6 @@ const Settings = () => {
               </button>
             </div>
 
-            {/* AI Gen Mode for Cloze */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <label className="text-sm font-medium text-gray-700">AI Gen Mode (Cloze)</label>
-                <Tooltip text="Generate fresh AI examples for each card in cloze mode. Only unseen examples are shown per session." position="right">
-                  <HelpCircle size={14} className="text-gray-400" />
-                </Tooltip>
-              </div>
-              <button
-                onClick={() => setLocalSettings({ ...localSettings, clozeAIGenMode: !localSettings.clozeAIGenMode })}
-                className={`relative w-12 h-6 rounded-full transition-colors ${
-                  localSettings.clozeAIGenMode ? 'bg-purple-600' : 'bg-gray-300'
-                }`}
-              >
-                <span
-                  className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${
-                    localSettings.clozeAIGenMode ? 'translate-x-7' : 'translate-x-1'
-                  }`}
-                />
-              </button>
-            </div>
           </div>
 
           {/* Action Buttons */}

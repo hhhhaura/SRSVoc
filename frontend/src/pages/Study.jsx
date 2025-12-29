@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Loader2, RotateCcw, Check, HelpCircle } from 'lucide-react';
+import { ArrowLeft, Loader2, RotateCcw, Check, HelpCircle, Sparkles } from 'lucide-react';
 import { getStudyCards, reviewCard } from '../api/study';
 import FlipCard from '../components/FlipCard';
 import ClozeCard from '../components/ClozeCard';
@@ -13,8 +13,9 @@ const Study = () => {
   const studyMode = searchParams.get('mode') || 'due';
   const preferredCardMode = searchParams.get('cardMode') || 'flashcard';
   const limitParam = searchParams.get('limit');
+  const aiClozeParam = searchParams.get('aiCloze') === 'true';
   const navigate = useNavigate();
-  const { settings } = useSettings();
+  const { settings, updateSettings } = useSettings();
   const [cards, setCards] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -24,11 +25,18 @@ const Study = () => {
   const [completed, setCompleted] = useState(false);
   const [clozeResult, setClozeResult] = useState(null); // null = not answered, true = correct, false = wrong
 
+  // Enable AI cloze mode if requested via URL param
+  useEffect(() => {
+    if (aiClozeParam && !settings.clozeAIGenMode) {
+      updateSettings({ clozeAIGenMode: true });
+    }
+  }, [aiClozeParam]);
+
   useEffect(() => {
     const fetchCards = async () => {
       try {
-        // Use limit from URL params, or 0 for "all" mode (no limit)
-        const limit = studyMode === 'all' ? 0 : (limitParam ? parseInt(limitParam) : 15);
+        // Use limit from URL params
+        const limit = limitParam ? parseInt(limitParam) : 15;
         const data = await getStudyCards(deckId, studyMode, limit);
         setCards(data);
         if (data.length === 0) {
@@ -167,8 +175,16 @@ const Study = () => {
         )}
 
         {/* Current Mode Indicator (locked for session) */}
-        <div className="bg-gray-100 text-gray-700 px-4 py-2 rounded-xl text-sm font-medium text-center mb-4">
-          {cardMode === 'flashcard' ? '📇 Flashcard Mode' : '✏️ Fill in Blank Mode'}
+        <div className={`px-4 py-2 rounded-xl text-sm font-medium text-center mb-4 flex items-center justify-center gap-2 ${
+          aiClozeParam ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-700'
+        }`}>
+          {cardMode === 'flashcard' ? (
+            '📇 Flashcard Mode'
+          ) : aiClozeParam ? (
+            <><Sparkles size={16} /> AI Cloze Mode</>
+          ) : (
+            '✏️ Fill in Blank Mode'
+          )}
         </div>
 
         {/* Card Display */}

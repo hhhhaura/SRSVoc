@@ -213,7 +213,7 @@ async def import_cards_csv(
 ):
     """Import cards from pipe-separated format.
     
-    Format: word || meaning || syn1, syn2 || (example1, trans1), (example2, trans2)...
+    Format: word || meaning || syn1, syn2 || (example1 | trans1), (example2 | trans2)...
     """
     deck = db.query(Deck).filter(
         Deck.id == import_data.deck_id,
@@ -233,7 +233,7 @@ async def import_cards_csv(
         
         # Check for new format (uses || as separator)
         if '||' in line:
-            # New format: word || meaning || synonyms || (ex1, trans1), (ex2, trans2)...
+            # New format: word || meaning || synonyms || (ex1 | trans1), (ex2 | trans2)...
             parts = line.split('||')
             if len(parts) >= 2:
                 word = parts[0].strip() if len(parts) > 0 else ""
@@ -243,24 +243,23 @@ async def import_cards_csv(
                 synonyms_str = parts[2].strip() if len(parts) > 2 else ""
                 synonyms = [s.strip() for s in synonyms_str.split(',') if s.strip()] if synonyms_str else None
                 
-                # Examples: (sentence, trans), (sentence, trans)...
-                # Use regex to find all (...)  pairs
+                # Examples: (sentence | trans), (sentence | trans)...
+                # Use regex to find all (...) pairs
                 examples = []
                 if len(parts) > 3:
                     examples_str = parts[3].strip()
                     # Find all (...) groups using regex
-                    import re
                     pair_matches = re.findall(r'\(([^)]+)\)', examples_str)
                     for pair in pair_matches:
-                        # Find the last comma to split sentence and translation
-                        last_comma = pair.rfind(',')
-                        if last_comma > 0:
-                            sentence = pair[:last_comma].strip()
-                            translation = pair[last_comma+1:].strip()
+                        # Split by | to separate sentence and translation
+                        if '|' in pair:
+                            pair_parts = pair.split('|', 1)
+                            sentence = pair_parts[0].strip()
+                            translation = pair_parts[1].strip() if len(pair_parts) > 1 else None
                             if sentence:
                                 examples.append({"sentence": sentence, "translation": translation})
                         elif pair.strip():
-                            # No comma found, just use as sentence
+                            # No | found, just use as sentence
                             examples.append({"sentence": pair.strip(), "translation": None})
                 
                 if word and definition:
