@@ -541,6 +541,58 @@ AI_DEFINITION_PROMPT = '''為英文單字/片語 "{word}" 提供繁體中文定�
 重要：只輸出 JSON 物件，不要其他文字。'''
 
 
+AI_SYNONYMS_PROMPT = '''Provide 3-5 English synonyms for the word/phrase "{word}" (meaning: {definition}).
+
+Requirements:
+1. Only provide synonyms that match the given meaning
+2. List common, useful synonyms
+3. Return as a JSON array of strings
+
+Output format:
+{{
+  "synonyms": ["synonym1", "synonym2", "synonym3"]
+}}
+
+IMPORTANT: Output ONLY the JSON object, no other text.'''
+
+
+@router.post("/ai/generate-synonyms")
+async def generate_ai_synonyms(
+    request: AIExampleRequest,
+    current_user: User = Depends(get_current_user)
+):
+    """Generate AI synonyms for a word using Gemini API."""
+    import google.generativeai as genai
+    
+    # Get API key from environment
+    api_key = os.getenv("GOOGLE_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="GOOGLE_API_KEY not configured")
+    
+    # Configure Gemini
+    genai.configure(api_key=api_key)
+    model = genai.GenerativeModel('gemini-2.0-flash')
+    
+    prompt = AI_SYNONYMS_PROMPT.format(word=request.word, definition=request.definition)
+    
+    try:
+        response = model.generate_content(prompt)
+        response_text = response.text.strip()
+        
+        # Try to extract JSON from response (handle markdown code blocks)
+        if response_text.startswith("```"):
+            response_text = re.sub(r'^```(?:json)?\n?', '', response_text)
+            response_text = re.sub(r'\n?```$', '', response_text)
+        
+        result = json.loads(response_text)
+        return result
+        
+    except json.JSONDecodeError as e:
+        raise HTTPException(status_code=500, detail=f"Failed to parse AI response: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"AI API error: {str(e)}")
+
+
 @router.post("/ai/generate-definition")
 async def generate_ai_definition(
     request: AIDefinitionRequest,

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Play, Plus, Trash2, Edit2, Loader2, RotateCcw, BookOpen, HelpCircle, CheckSquare, Square, X, ChevronDown, ChevronUp, Sparkles } from 'lucide-react';
 import { getDeck, getCards, deleteDeck, deleteCard, createCard, updateCard } from '../api/library';
-import { resetDeckProgress, generateAIExamples, generateAIDefinition } from '../api/study';
+import { resetDeckProgress, generateAIExamples, generateAIDefinition, generateAISynonyms } from '../api/study';
 import ProgressBar from '../components/ProgressBar';
 import BottomNav from '../components/BottomNav';
 import Tooltip from '../components/Tooltip';
@@ -31,6 +31,7 @@ const DeckView = () => {
   });
   const [aiLoading, setAiLoading] = useState(false);
   const [aiDefLoading, setAiDefLoading] = useState(false);
+  const [aiSynLoading, setAiSynLoading] = useState(false);
 
   const fetchData = async () => {
     try {
@@ -395,13 +396,41 @@ const DeckView = () => {
                 rows={2}
               />
             </div>
-            <input
-              type="text"
-              value={newCard.synonymsText}
-              onChange={(e) => setNewCard({ ...newCard, synonymsText: e.target.value })}
-              placeholder="Synonyms (comma-separated)"
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
-            />
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-sm text-gray-500">Synonyms (comma-separated)</span>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!newCard.word.trim() || !newCard.definition.trim()) return;
+                    setAiSynLoading(true);
+                    try {
+                      const result = await generateAISynonyms(newCard.word.trim(), newCard.definition.trim());
+                      if (result?.synonyms && result.synonyms.length > 0) {
+                        setNewCard(prev => ({ ...prev, synonymsText: result.synonyms.join(', ') }));
+                      }
+                    } catch (error) {
+                      console.error('AI synonyms generation failed:', error);
+                      alert('Failed to generate synonyms. Please try again.');
+                    } finally {
+                      setAiSynLoading(false);
+                    }
+                  }}
+                  disabled={aiSynLoading || !newCard.word.trim() || !newCard.definition.trim()}
+                  className="flex items-center gap-1 text-sm text-purple-600 hover:text-purple-700 disabled:text-gray-400"
+                >
+                  {aiSynLoading ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                  AI Generate
+                </button>
+              </div>
+              <input
+                type="text"
+                value={newCard.synonymsText}
+                onChange={(e) => setNewCard({ ...newCard, synonymsText: e.target.value })}
+                placeholder="syn1, syn2"
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+              />
+            </div>
             
             {/* Examples */}
             <div className="space-y-2">
@@ -737,7 +766,32 @@ const DeckView = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Synonyms (comma-separated)</label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-medium text-gray-700">Synonyms (comma-separated)</label>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!editForm.word.trim() || !editForm.definition.trim()) return;
+                      setAiSynLoading(true);
+                      try {
+                        const result = await generateAISynonyms(editForm.word.trim(), editForm.definition.trim());
+                        if (result?.synonyms && result.synonyms.length > 0) {
+                          setEditForm(prev => ({ ...prev, synonymsText: result.synonyms.join(', ') }));
+                        }
+                      } catch (error) {
+                        console.error('AI synonyms generation failed:', error);
+                        alert('Failed to generate synonyms. Please try again.');
+                      } finally {
+                        setAiSynLoading(false);
+                      }
+                    }}
+                    disabled={aiSynLoading || !editForm.word.trim() || !editForm.definition.trim()}
+                    className="flex items-center gap-1 text-sm text-purple-600 hover:text-purple-700 disabled:text-gray-400"
+                  >
+                    {aiSynLoading ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                    AI Generate
+                  </button>
+                </div>
                 <input
                   type="text"
                   value={editForm.synonymsText}

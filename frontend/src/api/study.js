@@ -40,6 +40,11 @@ export const generateAIDefinition = async (word) => {
   return response.data;
 };
 
+export const generateAISynonyms = async (word, definition) => {
+  const response = await api.post('/ai/generate-synonyms', { word, definition });
+  return response.data;
+};
+
 export const generateAIExamplesBatch = async (cards) => {
   // cards: [{card_id, word, definition}, ...]
   const response = await api.post('/ai/generate-examples-batch', { cards });
