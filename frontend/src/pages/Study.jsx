@@ -33,7 +33,16 @@ const Study = () => {
         // Use limit from URL params, capped at 50
         const requestedLimit = limitParam ? parseInt(limitParam) : 15;
         const limit = Math.min(50, requestedLimit);
-        const data = await getStudyCards(deckId, studyMode, limit);
+        let data = await getStudyCards(deckId, studyMode, limit);
+        
+        // For non-AI cloze mode, filter to only cards with cloze examples
+        const isClozeMode = preferredCardMode === 'cloze' && !aiClozeParam;
+        if (isClozeMode) {
+          data = data.filter(card => 
+            card.examples?.some(ex => ex.sentence?.includes('*'))
+          );
+        }
+        
         setCards(data);
         if (data.length === 0) {
           setCompleted(true);
