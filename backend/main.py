@@ -19,6 +19,7 @@ allowed_origins = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
     "http://127.0.0.1:64931",
+    "https://srsvoc-app.netlify.app",
 ]
 
 # Add frontend URL from environment variable if set
@@ -30,7 +31,6 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_origin_regex=r"http://127\.0\.0\.1:\d+|https://.*\.netlify\.app",
     allow_methods=["*"],
     allow_headers=["*"],
 )
