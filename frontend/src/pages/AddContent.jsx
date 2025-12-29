@@ -223,18 +223,18 @@ const AddContent = () => {
                 Or paste cards below (one per line)
               </label>
               <div className="text-xs text-gray-400 mb-2 space-y-1">
-                <p><strong>CSV format:</strong> <code className="bg-gray-100 px-1 rounded">word,meaning,syn1;syn2,example1 | trans1; example2 | trans2</code></p>
+                <p><strong>CSV format:</strong> <code className="bg-gray-100 px-1 rounded">word,meaning,syn1;syn2,(ex1,trans1)|(ex2,trans2)</code></p>
                 <p><strong>Pipe format:</strong> <code className="bg-gray-100 px-1 rounded">word || meaning || syn1, syn2 || (example1 | trans1), (example2 | trans2)</code></p>
               </div>
               <textarea
                 value={importText}
                 onChange={(e) => setImportText(e.target.value)}
                 placeholder={`CSV format:
-apple,蘋果,fruit;produce,He ate an *apple*. | 他吃了一個蘋果。
-hello,你好,hi;greetings,*Hello* world! | 你好世界！
+apple,蘋果,fruit;produce,(He ate an *apple*.,他吃了一個蘋果。)|(*Apples* are healthy.,蘋果很健康。)
+hello,你好,hi;greetings,(*Hello* world!,你好世界！)
 
 Or pipe format:
-apple || 蘋果 || fruit, produce || (He ate an *apple*. | 他吃了一個蘋果。)
+apple || 蘋果 || fruit, produce || (He ate an *apple*. | 他吃了一個蘋果。), (*Apples* are healthy. | 蘋果很健康。)
 hello || 你好 || hi, greetings || (*Hello* world! | 你好世界！)`}
                 className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none resize-none font-mono text-sm"
                 rows={10}

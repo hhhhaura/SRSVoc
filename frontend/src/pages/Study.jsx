@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Loader2, RotateCcw, Check, HelpCircle, Sparkles } from 'lucide-react';
-import { getStudyCards, reviewCard } from '../api/study';
+import { getStudyCards, reviewCard, generateAIExamplesBatch } from '../api/study';
 import FlipCard from '../components/FlipCard';
 import ClozeCard from '../components/ClozeCard';
 import Tooltip from '../components/Tooltip';
@@ -19,6 +19,8 @@ const Study = () => {
   const [cards, setCards] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [aiExamplesMap, setAiExamplesMap] = useState({}); // cardId -> {sentence, translation}
+  const [aiLoading, setAiLoading] = useState(false);
   const [isFlipped, setIsFlipped] = useState(false);
   const [showRating, setShowRating] = useState(false);
   const [cardMode, setCardMode] = useState(preferredCardMode);
@@ -35,12 +37,40 @@ const Study = () => {
   useEffect(() => {
     const fetchCards = async () => {
       try {
-        // Use limit from URL params
-        const limit = limitParam ? parseInt(limitParam) : 15;
+        // Use limit from URL params, capped at 50
+        const requestedLimit = limitParam ? parseInt(limitParam) : 15;
+        const limit = Math.min(50, requestedLimit);
         const data = await getStudyCards(deckId, studyMode, limit);
         setCards(data);
         if (data.length === 0) {
           setCompleted(true);
+        }
+        
+        // If AI cloze mode, fetch all AI examples at once
+        if (aiClozeParam && data.length > 0) {
+          setAiLoading(true);
+          try {
+            const cardsForAI = data.map(card => ({
+              card_id: card.id,
+              word: card.word,
+              definition: card.definition
+            }));
+            const result = await generateAIExamplesBatch(cardsForAI);
+            if (result?.results) {
+              const examplesMap = {};
+              result.results.forEach(item => {
+                examplesMap[item.card_id] = {
+                  sentence: item.sentence,
+                  translation: item.translation
+                };
+              });
+              setAiExamplesMap(examplesMap);
+            }
+          } catch (error) {
+            console.error('Failed to fetch AI examples:', error);
+          } finally {
+            setAiLoading(false);
+          }
         }
       } catch (error) {
         console.error('Failed to fetch study cards:', error);
@@ -50,7 +80,7 @@ const Study = () => {
       }
     };
     fetchCards();
-  }, [deckId, studyMode, limitParam]);
+  }, [deckId, studyMode, limitParam, aiClozeParam]);
 
   const currentCard = cards[currentIndex];
   // Check if any example has cloze markers
@@ -207,6 +237,8 @@ const Study = () => {
               definition={currentCard.definition}
               synonyms={currentCard.synonyms}
               onResult={handleClozeResult}
+              aiExample={aiClozeParam ? aiExamplesMap[currentCard.id] : null}
+              aiLoading={aiClozeParam && aiLoading}
             />
           )}
         </div>

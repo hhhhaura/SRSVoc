@@ -210,7 +210,10 @@ from io import StringIO
 
 
 def parse_csv_line(row: list) -> dict:
-    """Parse a CSV row into card data. Expects: word, meaning, [synonyms], [examples]"""
+    """Parse a CSV row into card data. Expects: word, meaning, [synonyms], [examples]
+    
+    Examples format: (sentence, translation) | (sentence2, translation2) ...
+    """
     if len(row) < 2:
         return None
     
@@ -228,24 +231,23 @@ def parse_csv_line(row: list) -> dict:
         if not synonyms:
             synonyms = None
     
-    # Examples (format: "sentence | translation; sentence2 | translation2")
+    # Examples format: (sentence, translation) | (sentence2, translation2) ...
     examples = []
     if len(row) > 3 and row[3]:
         examples_str = row[3].strip()
-        # Split by semicolon for multiple examples
-        example_parts = examples_str.split(';')
-        for part in example_parts:
-            part = part.strip()
-            if not part:
-                continue
-            if '|' in part:
-                pair_parts = part.split('|', 1)
+        # Find all (...) groups using regex, separated by |
+        pair_matches = re.findall(r'\(([^)]+)\)', examples_str)
+        for pair in pair_matches:
+            # Split by comma to separate sentence and translation
+            if ',' in pair:
+                pair_parts = pair.split(',', 1)
                 sentence = pair_parts[0].strip()
                 translation = pair_parts[1].strip() if len(pair_parts) > 1 else None
                 if sentence:
                     examples.append({"sentence": sentence, "translation": translation})
-            elif part:
-                examples.append({"sentence": part, "translation": None})
+            elif pair.strip():
+                # No comma found, just use as sentence
+                examples.append({"sentence": pair.strip(), "translation": None})
     
     return {
         "word": word,
@@ -446,6 +448,78 @@ class AIExampleRequest(PydanticBaseModel):
 
 class AIDefinitionRequest(PydanticBaseModel):
     word: str
+
+
+class AIBatchExamplesRequest(PydanticBaseModel):
+    cards: List[dict]  # List of {card_id, word, definition}
+
+
+AI_BATCH_EXAMPLE_PROMPT = '''Generate 1 example sentence for EACH of the following English words/phrases.
+
+Words:
+{words_list}
+
+Requirements:
+1. Each example should be a natural, clear sentence using the word
+2. Wrap the target word in asterisks like *word* in the ENGLISH sentence ONLY
+3. Provide a TRADITIONAL CHINESE (繁體中文) translation for each example
+4. DO NOT use asterisks in the Chinese translation - keep it plain text
+
+Output as JSON with this exact structure:
+{{
+  "results": [
+    {{"card_id": 1, "sentence": "Example sentence with *word*.", "translation": "繁體中文翻譯"}},
+    {{"card_id": 2, "sentence": "Another example with *word2*.", "translation": "繁體中文翻譯"}}
+  ]
+}}
+
+IMPORTANT: Output ONLY the JSON object, no other text. Use TRADITIONAL CHINESE (繁體中文) for all translations. NO asterisks in Chinese translations. Include ALL {count} words in your response.'''
+
+
+@router.post("/ai/generate-examples-batch")
+async def generate_ai_examples_batch(
+    request: AIBatchExamplesRequest,
+    current_user: User = Depends(get_current_user)
+):
+    """Generate AI example sentences for multiple words in a single API call."""
+    import google.generativeai as genai
+    
+    if not request.cards:
+        return {"results": []}
+    
+    # Get API key from environment
+    api_key = os.getenv("GOOGLE_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="GOOGLE_API_KEY not configured")
+    
+    # Configure Gemini
+    genai.configure(api_key=api_key)
+    model = genai.GenerativeModel('gemini-2.0-flash')
+    
+    # Build words list for prompt
+    words_list = "\n".join([
+        f"{i+1}. card_id={card['card_id']}: \"{card['word']}\" (meaning: {card['definition']})"
+        for i, card in enumerate(request.cards)
+    ])
+    
+    prompt = AI_BATCH_EXAMPLE_PROMPT.format(words_list=words_list, count=len(request.cards))
+    
+    try:
+        response = model.generate_content(prompt)
+        response_text = response.text.strip()
+        
+        # Try to extract JSON from response (handle markdown code blocks)
+        if response_text.startswith("```"):
+            response_text = re.sub(r'^```(?:json)?\n?', '', response_text)
+            response_text = re.sub(r'\n?```$', '', response_text)
+        
+        result = json.loads(response_text)
+        return result
+        
+    except json.JSONDecodeError as e:
+        raise HTTPException(status_code=500, detail=f"Failed to parse AI response: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"AI API error: {str(e)}")
 
 
 AI_DEFINITION_PROMPT = '''為英文單字/片語 "{word}" 提供繁體中文定義。

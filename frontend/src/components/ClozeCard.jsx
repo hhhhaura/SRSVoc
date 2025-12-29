@@ -1,101 +1,25 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import SpeakButton from './SpeakButton';
 import { useSettings } from '../context/SettingsContext';
-import { generateAIExamples } from '../api/study';
 import { Loader2, Sparkles } from 'lucide-react';
-
-// Session-level cache for AI-generated examples (persists across card changes within session)
-const aiExamplesCache = new Map(); // cardId -> [examples]
-const seenExamplesSet = new Set(); // "cardId:exampleIndex" to track seen examples
 
 // Cache for stable random example selection (non-AI mode)
 const stableExampleCache = new Map(); // cardId -> selectedExample
 
-const ClozeCard = ({ examples, word, definition, synonyms, onResult, cardId }) => {
+const ClozeCard = ({ examples, word, definition, synonyms, onResult, cardId, aiExample: prefetchedAiExample, aiLoading: externalAiLoading }) => {
   const { settings } = useSettings();
-  const [aiExample, setAiExample] = useState(null);
-  const [aiLoading, setAiLoading] = useState(false);
-  const [aiError, setAiError] = useState(null);
   
   // Compute stable card key
   const stableCardId = cardId || `${word}-${definition}`;
   
-  // Single effect for AI example loading with proper cleanup
-  useEffect(() => {
-    // Skip if AI mode is off
-    if (!settings.clozeAIGenMode || !word || !definition) {
-      setAiExample(null);
-      setAiLoading(false);
-      setAiError(null);
-      return;
-    }
-    
-    const cacheKey = stableCardId;
-    const cachedExamples = aiExamplesCache.get(cacheKey) || [];
-    
-    // Check cache FIRST before any state updates
-    for (let i = 0; i < cachedExamples.length; i++) {
-      const seenKey = `${cacheKey}:${i}`;
-      if (!seenExamplesSet.has(seenKey)) {
-        seenExamplesSet.add(seenKey);
-        // Single state update - directly set the cached example
-        setAiExample(cachedExamples[i]);
-        setAiLoading(false);
-        setAiError(null);
-        return; // Found cached example, done
-      }
-    }
-    
-    // No cached unseen example - reset and generate
-    let cancelled = false;
-    setAiExample(null);
-    setAiError(null);
-    setAiLoading(true);
-    
-    const loadAIExample = async () => {
-      try {
-        const result = await generateAIExamples(word, definition);
-        if (cancelled) return;
-        
-        if (result?.examples && result.examples.length > 0) {
-          // Add to cache
-          const newExamples = [...cachedExamples, ...result.examples];
-          aiExamplesCache.set(cacheKey, newExamples);
-          
-          // Use the first new example and mark as seen
-          const newIndex = cachedExamples.length;
-          seenExamplesSet.add(`${cacheKey}:${newIndex}`);
-          setAiExample(result.examples[0]);
-        } else {
-          setAiError('No examples generated');
-        }
-      } catch (error) {
-        console.error('AI generation failed:', error);
-        if (!cancelled) {
-          setAiError('Failed to generate example');
-        }
-      } finally {
-        if (!cancelled) {
-          setAiLoading(false);
-        }
-      }
-    };
-    
-    loadAIExample();
-    
-    return () => {
-      cancelled = true;
-    };
-  }, [settings.clozeAIGenMode, stableCardId, word, definition]);
-  
-  // Pick example: AI-generated if in AI mode, otherwise stable random from stored examples
+  // Pick example: AI-generated if provided, otherwise random from stored examples
   const selectedExample = useMemo(() => {
-    if (settings.clozeAIGenMode) {
-      // In AI mode, return aiExample (may be null while loading)
-      return aiExample;
+    // If we have a pre-fetched AI example, use it
+    if (prefetchedAiExample) {
+      return prefetchedAiExample;
     }
     
-    // Non-AI mode: use stable cached selection
+    // Non-AI mode: use stable cached selection from stored examples
     if (!examples || examples.length === 0) return null;
     
     if (stableExampleCache.has(stableCardId)) {
@@ -107,7 +31,7 @@ const ClozeCard = ({ examples, word, definition, synonyms, onResult, cardId }) =
     const selected = examples[randomIndex];
     stableExampleCache.set(stableCardId, selected);
     return selected;
-  }, [examples, settings.clozeAIGenMode, aiExample, stableCardId]);
+  }, [examples, prefetchedAiExample, stableCardId]);
   
   const sentence = selectedExample?.sentence || '';
   const translation = selectedExample?.translation || '';
@@ -185,28 +109,16 @@ const ClozeCard = ({ examples, word, definition, synonyms, onResult, cardId }) =
 
   const allFilled = parsed.answers.every(({ index }) => (userInputs[index] || '').trim());
 
-  // Show loading state for AI gen mode
-  if (settings.clozeAIGenMode && aiLoading) {
+  // Show loading state for AI gen mode (external loading from parent)
+  if (externalAiLoading) {
     return (
       <div className="bg-white rounded-xl shadow-lg p-6">
         <div className="flex flex-col items-center justify-center py-12">
           <Loader2 className="animate-spin text-purple-600 mb-4" size={40} />
           <p className="text-gray-600 flex items-center gap-2">
             <Sparkles size={16} className="text-purple-600" />
-            Generating AI example...
+            Generating AI examples for session...
           </p>
-        </div>
-      </div>
-    );
-  }
-
-  // Show error state for AI gen mode
-  if (settings.clozeAIGenMode && aiError && !aiExample) {
-    return (
-      <div className="bg-white rounded-xl shadow-lg p-6">
-        <div className="text-center py-8">
-          <p className="text-red-600 mb-4">{aiError}</p>
-          <p className="text-gray-500 text-sm">Falling back to stored examples...</p>
         </div>
       </div>
     );
@@ -215,7 +127,7 @@ const ClozeCard = ({ examples, word, definition, synonyms, onResult, cardId }) =
   return (
     <div className="bg-white rounded-xl shadow-lg p-6">
       {/* AI Gen Mode indicator */}
-      {settings.clozeAIGenMode && aiExample && (
+      {prefetchedAiExample && (
         <div className="flex items-center gap-1 text-purple-600 text-xs mb-3">
           <Sparkles size={12} />
           <span>AI Generated</span>

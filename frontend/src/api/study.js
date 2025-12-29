@@ -39,3 +39,9 @@ export const generateAIDefinition = async (word) => {
   const response = await api.post('/ai/generate-definition', { word });
   return response.data;
 };
+
+export const generateAIExamplesBatch = async (cards) => {
+  // cards: [{card_id, word, definition}, ...]
+  const response = await api.post('/ai/generate-examples-batch', { cards });
+  return response.data;
+};
