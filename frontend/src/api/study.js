@@ -25,8 +25,8 @@ export const importCardsCSV = async (deckId, csvData) => {
   return response.data;
 };
 
-export const getMultiDeckStudyCards = async (deckIds, mode = 'due', limit = 15) => {
-  const response = await api.post('/study/multi', { deck_ids: deckIds, mode, limit });
+export const getMultiDeckStudyCards = async (deckIds, mode = 'due', limit = 15, withExamplesOnly = false) => {
+  const response = await api.post('/study/multi', { deck_ids: deckIds, mode, limit, with_examples_only: withExamplesOnly });
   return response.data;
 };
 

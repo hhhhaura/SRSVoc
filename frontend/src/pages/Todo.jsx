@@ -71,7 +71,15 @@ const Todo = () => {
     .filter(d => selectedDecks.has(d.id))
     .reduce((sum, d) => sum + d.card_count, 0);
 
-  const effectiveCardCount = studyMode === 'due' ? selectedDueCount : selectedTotalCount;
+  const selectedCardsWithExamplesCount = decksWithCards
+    .filter(d => selectedDecks.has(d.id))
+    .reduce((sum, d) => sum + (d.cards_with_examples_count || 0), 0);
+
+  // For cloze mode (non-AI), only cards with examples are available
+  const isClozeMode = cardMode === 'cloze';
+  const effectiveCardCount = isClozeMode 
+    ? selectedCardsWithExamplesCount 
+    : (studyMode === 'due' ? selectedDueCount : selectedTotalCount);
 
   const startMultiDeckStudy = () => {
     if (selectedDecks.size === 0) return;
@@ -253,11 +261,12 @@ const Todo = () => {
                 </button>
                 <button
                   onClick={() => setCardMode('cloze')}
+                  disabled={selectedCardsWithExamplesCount === 0 && selectedDecks.size > 0}
                   className={`py-2 px-2 rounded-lg text-sm font-medium transition-all ${
                     cardMode === 'cloze'
                       ? 'bg-indigo-600 text-white'
                       : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
-                  }`}
+                  } ${selectedCardsWithExamplesCount === 0 && selectedDecks.size > 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   ✏️ Cloze
                 </button>
@@ -273,6 +282,16 @@ const Todo = () => {
                   AI
                 </button>
               </div>
+              {cardMode === 'cloze' && selectedDecks.size > 0 && (
+                <p className="text-xs text-green-600 mt-2">
+                  {selectedCardsWithExamplesCount} cards with examples available
+                </p>
+              )}
+              {selectedCardsWithExamplesCount === 0 && selectedDecks.size > 0 && cardMode !== 'cloze-ai' && cardMode !== 'flashcard' && (
+                <p className="text-xs text-gray-400 mt-2">
+                  No cards with examples in selected decks
+                </p>
+              )}
             </div>
 
             {/* Card Limit Slider */}

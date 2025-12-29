@@ -17,16 +17,18 @@ router = APIRouter(prefix="/library", tags=["Library"])
 
 
 def get_deck_stats(deck: Deck) -> dict:
-    """Get card count, mastered count, and due count for a deck."""
+    """Get card count, mastered count, due count, and cards with examples count for a deck."""
     cards = deck.cards
     card_count = len(cards)
     mastered_count = sum(1 for card in cards if card.interval > 3)
     due_count = sum(1 for card in cards if card.next_review_date <= datetime.utcnow())
+    cards_with_examples_count = sum(1 for card in cards if card.examples and len(card.examples) > 0)
     
     return {
         "card_count": card_count,
         "mastered_count": mastered_count,
-        "due_count": due_count
+        "due_count": due_count,
+        "cards_with_examples_count": cards_with_examples_count
     }
 
 

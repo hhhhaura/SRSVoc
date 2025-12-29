@@ -43,7 +43,10 @@ const MultiDeckStudy = () => {
 
       try {
         const limit = limitParam ? parseInt(limitParam) : 20;
-        const data = await getMultiDeckStudyCards(deckIds, studyMode, limit);
+        // For non-AI cloze mode, filter cards with examples
+        const isClozeMode = preferredCardMode === 'cloze' && !aiClozeParam;
+        const withExamplesOnly = isClozeMode;
+        const data = await getMultiDeckStudyCards(deckIds, studyMode, limit, withExamplesOnly);
         setCards(data);
         if (data.length === 0) {
           setCompleted(true);

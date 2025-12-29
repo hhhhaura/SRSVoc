@@ -74,6 +74,7 @@ class DeckResponse(DeckBase):
     card_count: int = 0
     mastered_count: int = 0
     due_count: int = 0
+    cards_with_examples_count: int = 0
 
     class Config:
         from_attributes = True
@@ -157,6 +158,7 @@ class DeckInFolder(BaseModel):
     card_count: int
     mastered_count: int
     due_count: int
+    cards_with_examples_count: int = 0
 
     class Config:
         from_attributes = True
@@ -187,6 +189,7 @@ class MultiDeckStudyRequest(BaseModel):
     deck_ids: List[int]
     mode: str = "due"  # "due" or "all"
     limit: int = 15  # 0 for no limit
+    with_examples_only: bool = False  # Filter for cards with examples (for cloze mode)
 
 
 # PDF Import Schema

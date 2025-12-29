@@ -422,6 +422,10 @@ async def get_multi_deck_study_cards(
             ).all()
         all_cards.extend(cards)
     
+    # Filter for cards with examples (for cloze mode)
+    if request.with_examples_only:
+        all_cards = [card for card in all_cards if card.examples and len(card.examples) > 0]
+    
     if not all_cards:
         return []
     
