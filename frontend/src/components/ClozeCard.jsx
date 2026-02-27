@@ -39,6 +39,9 @@ const ClozeCard = ({ examples, word, definition, synonyms, onResult, cardId, aiE
   const [submitted, setSubmitted] = useState(false);
   const [results, setResults] = useState({});
 
+  // Common words that shouldn't show first letter hint
+  const commonWords = new Set(['in', 'an', 'a', 'for', 'from', 'to', 'at', 'as', 'of', 'by', 'with', 'on']);
+
   // Parse cloze deletion: find text between asterisks
   const parsed = useMemo(() => {
     if (!sentence) return { parts: [], answers: [] };
@@ -55,7 +58,8 @@ const ClozeCard = ({ examples, word, definition, synonyms, onResult, cardId, aiE
         parts.push({ type: 'text', content: sentence.slice(lastIndex, match.index) });
       }
       const answer = match[1];
-      const firstLetter = settings.showFirstLetterHint ? answer.charAt(0) : '';
+      const isCommonWord = commonWords.has(answer.toLowerCase());
+      const firstLetter = (settings.showFirstLetterHint && !isCommonWord) ? answer.charAt(0) : '';
       parts.push({ type: 'cloze', content: answer, index: clozeIndex, firstLetter });
       matches.push({ answer, index: clozeIndex, firstLetter });
       clozeIndex++;

@@ -5,7 +5,7 @@ import DeckCard from './DeckCard';
 import Tooltip from './Tooltip';
 
 const FolderSection = ({ folder, onDelete, onAddDeck, selectMode = false, selectedDecks = new Set(), onToggleSelect }) => {
-  const [isOpen, setIsOpen] = useState(true);
+  const [isOpen, setIsOpen] = useState(false);
 
   return (
     <div className="mb-4">
