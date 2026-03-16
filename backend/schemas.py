@@ -92,6 +92,7 @@ class CardBase(BaseModel):
     definition: str
     synonyms: Optional[List[str]] = None
     examples: Optional[List[ExampleItem]] = None
+    is_starred: bool = False
 
 
 class CardCreate(CardBase):
@@ -103,6 +104,7 @@ class CardUpdate(BaseModel):
     definition: Optional[str] = None
     synonyms: Optional[List[str]] = None
     examples: Optional[List[ExampleItem]] = None
+    is_starred: Optional[bool] = None
 
 
 class CardResponse(CardBase):
@@ -190,6 +192,8 @@ class MultiDeckStudyRequest(BaseModel):
     mode: str = "due"  # "due" or "all"
     limit: int = 15  # 0 for no limit
     with_examples_only: bool = False  # Filter for cards with examples (for cloze mode)
+    familiarity_bucket: Optional[str] = None  # "low", "medium", "high"
+    starred_only: bool = False
 
 
 # PDF Import Schema

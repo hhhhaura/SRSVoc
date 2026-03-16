@@ -359,6 +359,33 @@ async def update_card(
         card.synonyms = card_data.synonyms
     if card_data.examples is not None:
         card.examples = [ex.model_dump() for ex in card_data.examples]
+    if card_data.is_starred is not None:
+        card.is_starred = card_data.is_starred
+    
+    db.commit()
+    db.refresh(card)
+    
+    return card
+
+
+@router.post("/cards/{card_id}/star", response_model=CardResponse)
+async def toggle_card_star(
+    card_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Toggle the starred state for a card.
+    """
+    card = db.query(Card).join(Deck).filter(
+        Card.id == card_id,
+        Deck.user_id == current_user.id
+    ).first()
+    
+    if not card:
+        raise HTTPException(status_code=404, detail="Card not found")
+    
+    card.is_starred = not bool(card.is_starred)
     
     db.commit()
     db.refresh(card)

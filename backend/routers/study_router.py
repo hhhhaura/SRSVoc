@@ -67,6 +67,8 @@ async def get_study_cards(
     limit: int = 15,
     cloze_only: bool = False,
     with_examples_only: bool = False,
+    familiarity_bucket: Optional[str] = None,
+    starred_only: bool = False,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -100,6 +102,19 @@ async def get_study_cards(
     # Filter for cards with examples (for cloze mode without requiring markers)
     elif with_examples_only:
         cards = [card for card in cards if card.examples and len(card.examples) > 0]
+    
+    # Filter by familiarity bucket (based on interval in days)
+    if familiarity_bucket:
+        if familiarity_bucket == "low":
+            cards = [card for card in cards if 0 <= (card.interval or 0) <= 1]
+        elif familiarity_bucket == "medium":
+            cards = [card for card in cards if 2 <= (card.interval or 0) <= 3]
+        elif familiarity_bucket == "high":
+            cards = [card for card in cards if (card.interval or 0) >= 4]
+    
+    # Filter by starred-only
+    if starred_only:
+        cards = [card for card in cards if getattr(card, "is_starred", False)]
     
     # Apply weighted sampling if limit > 0
     if limit > 0 and len(cards) > limit:
@@ -425,6 +440,19 @@ async def get_multi_deck_study_cards(
     # Filter for cards with examples (for cloze mode)
     if request.with_examples_only:
         all_cards = [card for card in all_cards if card.examples and len(card.examples) > 0]
+    
+    # Filter by familiarity bucket
+    if request.familiarity_bucket:
+        if request.familiarity_bucket == "low":
+            all_cards = [card for card in all_cards if 0 <= (card.interval or 0) <= 1]
+        elif request.familiarity_bucket == "medium":
+            all_cards = [card for card in all_cards if 2 <= (card.interval or 0) <= 3]
+        elif request.familiarity_bucket == "high":
+            all_cards = [card for card in all_cards if (card.interval or 0) >= 4]
+    
+    # Filter by starred-only
+    if request.starred_only:
+        all_cards = [card for card in all_cards if getattr(card, "is_starred", False)]
     
     if not all_cards:
         return []

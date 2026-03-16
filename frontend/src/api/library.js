@@ -63,3 +63,8 @@ export const deleteCard = async (cardId) => {
   const response = await api.delete(`/library/cards/${cardId}`);
   return response.data;
 };
+
+export const toggleCardStar = async (cardId) => {
+  const response = await api.post(`/library/cards/${cardId}/star`);
+  return response.data;
+};

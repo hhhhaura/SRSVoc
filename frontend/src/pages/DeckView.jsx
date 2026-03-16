@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Play, Plus, Trash2, Edit2, Loader2, RotateCcw, BookOpen, HelpCircle, CheckSquare, Square, X, ChevronDown, ChevronUp, Sparkles } from 'lucide-react';
-import { getDeck, getCards, deleteDeck, deleteCard, createCard, updateCard } from '../api/library';
+import { getDeck, getCards, deleteDeck, deleteCard, createCard, updateCard, toggleCardStar } from '../api/library';
 import { resetDeckProgress, generateAIExamples, generateAIDefinition, generateAISynonyms } from '../api/study';
 import ProgressBar from '../components/ProgressBar';
 import BottomNav from '../components/BottomNav';
@@ -126,6 +126,12 @@ const DeckView = () => {
       params.set('aiCloze', 'true');
     }
     params.set('limit', options.cardsPerSession);
+    if (options.familiarityBucket) {
+      params.set('familiarityBucket', options.familiarityBucket);
+    }
+    if (options.starredOnly) {
+      params.set('starredOnly', 'true');
+    }
     // If no cards due OR user wants more cards than are due, use "all" mode
     const dueCount = deck?.due_count || 0;
     if (dueCount === 0 || options.cardsPerSession > dueCount) {
@@ -606,6 +612,25 @@ const DeckView = () => {
                     <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="font-semibold text-gray-800">{card.word}</h3>
                       {!selectMode && <SpeakButton text={card.word} size={16} />}
+                      {!selectMode && (
+                        <button
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            try {
+                              const updated = await toggleCardStar(card.id);
+                              setCards(prev =>
+                                prev.map(c => (c.id === card.id ? { ...c, is_starred: updated.is_starred } : c))
+                              );
+                            } catch (error) {
+                              console.error('Failed to toggle star:', error);
+                            }
+                          }}
+                          className="text-yellow-400 hover:text-yellow-500 transition-colors"
+                          aria-label={card.is_starred ? 'Unstar card' : 'Star card'}
+                        >
+                          {card.is_starred ? '★' : '☆'}
+                        </button>
+                      )}
                       {card.examples && card.examples.length > 0 ? (
                         <span className="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full">with examples</span>
                       ) : (

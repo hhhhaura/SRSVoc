@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Loader2, Check, HelpCircle, Sparkles } from 'lucide-react';
 import { getMultiDeckStudyCards, reviewCard } from '../api/study';
+import { toggleCardStar } from '../api/library';
 import FlipCard from '../components/FlipCard';
 import ClozeCard from '../components/ClozeCard';
 import Tooltip from '../components/Tooltip';
@@ -14,6 +15,8 @@ const MultiDeckStudy = () => {
   const preferredCardMode = searchParams.get('cardMode') || 'flashcard';
   const limitParam = searchParams.get('limit');
   const aiClozeParam = searchParams.get('aiCloze') === 'true';
+  const familiarityBucket = searchParams.get('familiarityBucket');
+  const starredOnly = searchParams.get('starredOnly') === 'true';
   const navigate = useNavigate();
   const { settings, updateSettings } = useSettings();
   const [cards, setCards] = useState([]);
@@ -46,7 +49,14 @@ const MultiDeckStudy = () => {
         // For non-AI cloze mode, filter cards with examples
         const isClozeMode = preferredCardMode === 'cloze' && !aiClozeParam;
         const withExamplesOnly = isClozeMode;
-        const data = await getMultiDeckStudyCards(deckIds, studyMode, limit, withExamplesOnly);
+        const data = await getMultiDeckStudyCards(
+          deckIds,
+          studyMode,
+          limit,
+          withExamplesOnly,
+          familiarityBucket,
+          starredOnly
+        );
         setCards(data);
         if (data.length === 0) {
           setCompleted(true);
@@ -158,7 +168,26 @@ const MultiDeckStudy = () => {
               {currentIndex + 1} / {cards.length}
             </span>
           </div>
-          <div className="w-10" />
+          <div className="flex items-center justify-end w-10">
+            {currentCard && (
+              <button
+                onClick={async () => {
+                  try {
+                    const updated = await toggleCardStar(currentCard.id);
+                    setCards(prev =>
+                      prev.map(c => (c.id === currentCard.id ? { ...c, is_starred: updated.is_starred } : c))
+                    );
+                  } catch (error) {
+                    console.error('Failed to toggle star:', error);
+                  }
+                }}
+                className="text-yellow-400 hover:text-yellow-500 transition-colors"
+                aria-label={currentCard.is_starred ? 'Unstar card' : 'Star card'}
+              >
+                {currentCard.is_starred ? '★' : '☆'}
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Progress Bar */}
@@ -170,9 +199,20 @@ const MultiDeckStudy = () => {
         </div>
 
         {/* Multi-deck indicator */}
-        <div className="bg-purple-100 text-purple-700 px-4 py-2 rounded-xl text-sm font-medium text-center mb-4">
+        <div className="bg-purple-100 text-purple-700 px-4 py-2 rounded-xl text-sm font-medium text-center mb-2">
           📚 Multi-Deck Study - {deckIds.length} decks combined
         </div>
+
+        {/* Subset Indicator */}
+        {(familiarityBucket || starredOnly) && (
+          <div className="bg-yellow-50 text-yellow-700 px-4 py-2 rounded-xl text-xs font-medium text-center mb-4">
+            {starredOnly && '⭐ Starred only'}
+            {starredOnly && familiarityBucket && ' · '}
+            {familiarityBucket === 'low' && 'Low familiarity (0–1 days)'}
+            {familiarityBucket === 'medium' && 'Medium familiarity (2–3 days)'}
+            {familiarityBucket === 'high' && 'High familiarity (4+ days)'}
+          </div>
+        )}
 
         {/* Current Mode Indicator */}
         <div className={`px-4 py-2 rounded-xl text-sm font-medium text-center mb-4 flex items-center justify-center gap-2 ${

@@ -1,7 +1,25 @@
 import api from './axios';
 
-export const getStudyCards = async (deckId, mode = 'due', limit = 15, clozeOnly = false, withExamplesOnly = false) => {
-  const response = await api.get(`/study/${deckId}`, { params: { mode, limit, cloze_only: clozeOnly, with_examples_only: withExamplesOnly } });
+export const getStudyCards = async (
+  deckId,
+  mode = 'due',
+  limit = 15,
+  clozeOnly = false,
+  withExamplesOnly = false,
+  familiarityBucket = null,
+  starredOnly = false
+) => {
+  const params = {
+    mode,
+    limit,
+    cloze_only: clozeOnly,
+    with_examples_only: withExamplesOnly,
+    starred_only: starredOnly,
+  };
+  if (familiarityBucket) {
+    params.familiarity_bucket = familiarityBucket;
+  }
+  const response = await api.get(`/study/${deckId}`, { params });
   return response.data;
 };
 
@@ -25,8 +43,25 @@ export const importCardsCSV = async (deckId, csvData) => {
   return response.data;
 };
 
-export const getMultiDeckStudyCards = async (deckIds, mode = 'due', limit = 15, withExamplesOnly = false) => {
-  const response = await api.post('/study/multi', { deck_ids: deckIds, mode, limit, with_examples_only: withExamplesOnly });
+export const getMultiDeckStudyCards = async (
+  deckIds,
+  mode = 'due',
+  limit = 15,
+  withExamplesOnly = false,
+  familiarityBucket = null,
+  starredOnly = false
+) => {
+  const payload = {
+    deck_ids: deckIds,
+    mode,
+    limit,
+    with_examples_only: withExamplesOnly,
+    starred_only: starredOnly,
+  };
+  if (familiarityBucket) {
+    payload.familiarity_bucket = familiarityBucket;
+  }
+  const response = await api.post('/study/multi', payload);
   return response.data;
 };
 

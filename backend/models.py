@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Text, JSON
+from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Text, JSON, Boolean
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from database import Base
@@ -51,6 +51,7 @@ class Card(Base):
     definition = Column(Text, nullable=False)
     synonyms = Column(JSON, nullable=True)  # List of synonyms: ["syn1", "syn2"]
     examples = Column(JSON, nullable=True)  # List of examples: [{"sentence": "...*word*...", "translation": "中文"}, ...]
+    is_starred = Column(Boolean, default=False, nullable=False, index=True)
     
     # SM-2 Algorithm fields
     interval = Column(Integer, default=0)  # Days until next review
