@@ -73,6 +73,24 @@ def migrate():
             else:
                 print("Column 'parent_folder_id' already exists")
 
+    # Deck table migration for sorting support
+    if 'decks' in inspector.get_table_names():
+        deck_columns = {col['name'] for col in inspector.get_columns('decks')}
+        print(f"Existing columns in decks table: {deck_columns}")
+        with engine.connect() as conn:
+            if 'updated_at' not in deck_columns:
+                print("Adding 'updated_at' column to decks...")
+                if engine.dialect.name == "postgresql":
+                    conn.execute(text("ALTER TABLE decks ADD COLUMN updated_at TIMESTAMP"))
+                    conn.execute(text("UPDATE decks SET updated_at = created_at WHERE updated_at IS NULL"))
+                else:
+                    conn.execute(text("ALTER TABLE decks ADD COLUMN updated_at DATETIME"))
+                    conn.execute(text("UPDATE decks SET updated_at = created_at WHERE updated_at IS NULL"))
+                conn.commit()
+                print("Added 'updated_at' column")
+            else:
+                print("Column 'updated_at' already exists")
+
 if __name__ == "__main__":
     migrate()
     print("Migration complete!")

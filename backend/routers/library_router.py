@@ -24,6 +24,8 @@ def get_deck_stats(deck: Deck) -> dict:
     due_count = sum(1 for card in cards if card.next_review_date <= datetime.utcnow())
     cards_with_examples_count = sum(1 for card in cards if card.examples and len(card.examples) > 0)
     
+    deck_updated_at = getattr(deck, "updated_at", None) or deck.created_at
+
     return {
         "card_count": card_count,
         "mastered_count": mastered_count,
@@ -31,7 +33,7 @@ def get_deck_stats(deck: Deck) -> dict:
         "cards_with_examples_count": cards_with_examples_count,
         "folder_id": deck.folder_id,
         "created_at": deck.created_at,
-        "updated_at": deck.updated_at,
+        "updated_at": deck_updated_at,
     }
 
 

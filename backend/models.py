@@ -39,6 +39,7 @@ class Deck(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     folder_id = Column(Integer, ForeignKey("folders.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     user = relationship("User", back_populates="decks")
     folder = relationship("Folder", back_populates="decks")
