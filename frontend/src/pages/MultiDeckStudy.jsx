@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Loader2, Check, HelpCircle, Sparkles } from 'lucide-react';
-import { getMultiDeckStudyCards, reviewCard } from '../api/study';
+import { getMultiDeckStudyCards, reviewCard, generateAIExamplesBatch } from '../api/study';
 import { toggleCardStar } from '../api/library';
 import FlipCard from '../components/FlipCard';
 import ClozeCard from '../components/ClozeCard';
@@ -22,6 +22,8 @@ const MultiDeckStudy = () => {
   const [cards, setCards] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [aiExamplesMap, setAiExamplesMap] = useState({});
+  const [aiLoading, setAiLoading] = useState(false);
   const [isFlipped, setIsFlipped] = useState(false);
   const [showRating, setShowRating] = useState(false);
   const [cardMode, setCardMode] = useState(preferredCardMode);
@@ -61,6 +63,31 @@ const MultiDeckStudy = () => {
         if (data.length === 0) {
           setCompleted(true);
         }
+        if (aiClozeParam && data.length > 0) {
+          setAiLoading(true);
+          try {
+            const cardsForAI = data.map(card => ({
+              card_id: card.id,
+              word: card.word,
+              definition: card.definition
+            }));
+            const result = await generateAIExamplesBatch(cardsForAI);
+            if (result?.results) {
+              const map = {};
+              result.results.forEach(item => {
+                map[item.card_id] = {
+                  sentence: item.sentence,
+                  translation: item.translation
+                };
+              });
+              setAiExamplesMap(map);
+            }
+          } catch (error) {
+            console.error('Failed to fetch AI examples:', error);
+          } finally {
+            setAiLoading(false);
+          }
+        }
       } catch (error) {
         console.error('Failed to fetch study cards:', error);
         navigate('/');
@@ -69,7 +96,7 @@ const MultiDeckStudy = () => {
       }
     };
     fetchCards();
-  }, [deckIdsParam, studyMode, limitParam]);
+  }, [deckIdsParam, studyMode, limitParam, aiClozeParam, preferredCardMode, familiarityBucket, starredOnly]);
 
   const currentCard = cards[currentIndex];
   const hasCloze = currentCard?.examples?.some(ex => ex.sentence?.includes('*'));
@@ -241,11 +268,14 @@ const MultiDeckStudy = () => {
           ) : (
             <ClozeCard
               key={currentCard.id}
+              cardId={currentCard.id}
               examples={currentCard.examples}
               word={currentCard.word}
               definition={currentCard.definition}
               synonyms={currentCard.synonyms}
               onResult={handleClozeResult}
+              aiExample={aiClozeParam ? aiExamplesMap[currentCard.id] : null}
+              aiLoading={aiClozeParam && aiLoading}
             />
           )}
         </div>

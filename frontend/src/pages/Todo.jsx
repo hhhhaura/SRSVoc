@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { CheckCircle2, Clock, Play, Loader2, CheckSquare, Square, Layers, Sparkles, Eye, EyeOff } from 'lucide-react';
 import { getLibrary } from '../api/library';
 import BottomNav from '../components/BottomNav';
+import { flattenDecksFromTree, sortDecks, SORT_OPTIONS } from '../utils/libraryTree';
 
 const Todo = () => {
   const [decks, setDecks] = useState([]);
@@ -12,6 +13,7 @@ const Todo = () => {
   const [studyMode, setStudyMode] = useState('due'); // 'due' or 'all'
   const [cardMode, setCardMode] = useState('flashcard'); // 'flashcard', 'cloze', 'cloze-ai'
   const [cardLimit, setCardLimit] = useState(20);
+  const [sortBy, setSortBy] = useState(SORT_OPTIONS.NAME_ASC);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -20,8 +22,8 @@ const Todo = () => {
         const data = await getLibrary();
         // Flatten all decks from folders and root_decks
         const allDecks = [
-          ...(data.root_decks || []),
-          ...(data.folders || []).flatMap(folder => folder.decks || [])
+          ...sortDecks(data.root_decks || [], sortBy).map(deck => ({ ...deck, folderPath: 'Root' })),
+          ...flattenDecksFromTree(data.folders || [], sortBy)
         ];
         setDecks(allDecks);
       } catch (error) {
@@ -31,7 +33,7 @@ const Todo = () => {
       }
     };
     fetchDecks();
-  }, []);
+  }, [sortBy]);
 
   // Filter decks based on showAllDecks toggle
   const decksWithCards = decks.filter(deck => deck.card_count > 0);
@@ -150,6 +152,17 @@ const Todo = () => {
                 Select Decks
               </h2>
               <div className="flex items-center gap-3">
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className="text-xs px-2 py-1 rounded-lg border border-gray-200 bg-white"
+                >
+                  <option value={SORT_OPTIONS.NAME_ASC}>Name A-Z</option>
+                  <option value={SORT_OPTIONS.NAME_DESC}>Name Z-A</option>
+                  <option value={SORT_OPTIONS.CREATED_DESC}>Created New-Old</option>
+                  <option value={SORT_OPTIONS.CREATED_ASC}>Created Old-New</option>
+                  <option value={SORT_OPTIONS.UPDATED_DESC}>Updated New-Old</option>
+                </select>
                 <button
                   onClick={() => setShowAllDecks(!showAllDecks)}
                   className={`flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-lg transition-colors ${
@@ -197,6 +210,7 @@ const Todo = () => {
                     )}
                     <div className="flex-1 min-w-0">
                       <h3 className="font-medium text-gray-800 truncate text-sm">{deck.name}</h3>
+                      <p className="text-[11px] text-gray-400 truncate">{deck.folderPath}</p>
                       <p className="text-xs text-gray-500">{deck.card_count} cards</p>
                     </div>
                     {deck.due_count > 0 ? (

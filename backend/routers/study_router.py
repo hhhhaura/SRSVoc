@@ -5,7 +5,7 @@ import json
 import re
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 
 from database import get_db
 from models import User, Deck, Card
@@ -500,7 +500,7 @@ class AIDefinitionRequest(PydanticBaseModel):
 
 
 class AIBatchExamplesRequest(PydanticBaseModel):
-    cards: List[dict]  # List of {card_id, word, definition}
+    cards: List[Dict[str, Any]]  # List of {card_id, word, definition}
 
 
 AI_BATCH_EXAMPLE_PROMPT = '''Generate 1 example sentence for EACH of the following English words/phrases.
@@ -525,6 +525,49 @@ Output as JSON with this exact structure:
 IMPORTANT: Output ONLY the JSON object, no other text. Use TRADITIONAL CHINESE (繁體中文) for all translations. NO asterisks in Chinese translations. Include ALL {count} words in your response.'''
 
 
+def _clean_json_response(response_text: str) -> str:
+    text = (response_text or "").strip()
+    if text.startswith("```"):
+        text = re.sub(r'^```(?:json)?\n?', '', text)
+        text = re.sub(r'\n?```$', '', text)
+    return text.strip()
+
+
+def _raise_ai_http_error(error: Exception) -> None:
+    message = str(error)
+    lowered = message.lower()
+    if "api key" in lowered or "permission" in lowered or "unauthorized" in lowered:
+        raise HTTPException(status_code=503, detail="AI service authentication failed. Check GOOGLE_API_KEY.")
+    if "timeout" in lowered or "timed out" in lowered:
+        raise HTTPException(status_code=504, detail="AI service timeout. Please try again.")
+    if "quota" in lowered or "rate" in lowered:
+        raise HTTPException(status_code=429, detail="AI service rate limit exceeded. Please retry later.")
+    raise HTTPException(status_code=502, detail=f"AI service error: {message}")
+
+
+def _bold_target_variants(sentence: str, word: str) -> str:
+    if not sentence or not word:
+        return sentence
+    if "**" in sentence:
+        return sentence
+
+    escaped = re.escape(word.strip())
+    # Common English inflection variants: -s, -es, -ed, -ing, -d.
+    pattern = rf"\b({escaped}(?:s|es|ed|ing|d)?)\b"
+    return re.sub(pattern, r"**\1**", sentence, flags=re.IGNORECASE)
+
+
+def _normalize_examples_payload(examples: List[Dict[str, Any]], word: str) -> List[Dict[str, Any]]:
+    normalized = []
+    for example in examples:
+        sentence = _bold_target_variants((example or {}).get("sentence", ""), word)
+        normalized.append({
+            "sentence": sentence,
+            "translation": (example or {}).get("translation"),
+        })
+    return normalized
+
+
 @router.post("/ai/generate-examples-batch")
 async def generate_ai_examples_batch(
     request: AIBatchExamplesRequest,
@@ -545,6 +588,12 @@ async def generate_ai_examples_batch(
     genai.configure(api_key=api_key)
     model = genai.GenerativeModel('gemini-2.0-flash')
     
+    for card in request.cards:
+        if not isinstance(card, dict):
+            raise HTTPException(status_code=400, detail="Each card must be an object")
+        if "card_id" not in card or "word" not in card or "definition" not in card:
+            raise HTTPException(status_code=400, detail="Each card requires card_id, word, and definition")
+
     # Build words list for prompt
     words_list = "\n".join([
         f"{i+1}. card_id={card['card_id']}: \"{card['word']}\" (meaning: {card['definition']})"
@@ -555,20 +604,23 @@ async def generate_ai_examples_batch(
     
     try:
         response = model.generate_content(prompt)
-        response_text = response.text.strip()
-        
-        # Try to extract JSON from response (handle markdown code blocks)
-        if response_text.startswith("```"):
-            response_text = re.sub(r'^```(?:json)?\n?', '', response_text)
-            response_text = re.sub(r'\n?```$', '', response_text)
-        
+        response_text = _clean_json_response(response.text)
         result = json.loads(response_text)
-        return result
+        cards_by_id = {card.get("card_id"): card for card in request.cards}
+        normalized_results = []
+        for item in result.get("results", []):
+            source_card = cards_by_id.get(item.get("card_id"), {})
+            normalized_results.append({
+                "card_id": item.get("card_id"),
+                "sentence": _bold_target_variants(item.get("sentence", ""), source_card.get("word", "")),
+                "translation": item.get("translation"),
+            })
+        return {"results": normalized_results}
         
     except json.JSONDecodeError as e:
-        raise HTTPException(status_code=500, detail=f"Failed to parse AI response: {str(e)}")
+        raise HTTPException(status_code=502, detail=f"Failed to parse AI response JSON: {str(e)}")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"AI API error: {str(e)}")
+        _raise_ai_http_error(e)
 
 
 AI_DEFINITION_PROMPT = '''為英文單字/片語 "{word}" 提供繁體中文定義。
@@ -622,20 +674,14 @@ async def generate_ai_synonyms(
     
     try:
         response = model.generate_content(prompt)
-        response_text = response.text.strip()
-        
-        # Try to extract JSON from response (handle markdown code blocks)
-        if response_text.startswith("```"):
-            response_text = re.sub(r'^```(?:json)?\n?', '', response_text)
-            response_text = re.sub(r'\n?```$', '', response_text)
-        
+        response_text = _clean_json_response(response.text)
         result = json.loads(response_text)
         return result
         
     except json.JSONDecodeError as e:
-        raise HTTPException(status_code=500, detail=f"Failed to parse AI response: {str(e)}")
+        raise HTTPException(status_code=502, detail=f"Failed to parse AI response JSON: {str(e)}")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"AI API error: {str(e)}")
+        _raise_ai_http_error(e)
 
 
 @router.post("/ai/generate-definition")
@@ -659,20 +705,14 @@ async def generate_ai_definition(
     
     try:
         response = model.generate_content(prompt)
-        response_text = response.text.strip()
-        
-        # Try to extract JSON from response (handle markdown code blocks)
-        if response_text.startswith("```"):
-            response_text = re.sub(r'^```(?:json)?\n?', '', response_text)
-            response_text = re.sub(r'\n?```$', '', response_text)
-        
+        response_text = _clean_json_response(response.text)
         result = json.loads(response_text)
         return result
         
     except json.JSONDecodeError as e:
-        raise HTTPException(status_code=500, detail=f"Failed to parse AI response: {str(e)}")
+        raise HTTPException(status_code=502, detail=f"Failed to parse AI response JSON: {str(e)}")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"AI API error: {str(e)}")
+        _raise_ai_http_error(e)
 
 
 @router.post("/ai/generate-examples")
@@ -696,17 +736,13 @@ async def generate_ai_examples(
     
     try:
         response = model.generate_content(prompt)
-        response_text = response.text.strip()
-        
-        # Try to extract JSON from response (handle markdown code blocks)
-        if response_text.startswith("```"):
-            response_text = re.sub(r'^```(?:json)?\n?', '', response_text)
-            response_text = re.sub(r'\n?```$', '', response_text)
-        
+        response_text = _clean_json_response(response.text)
         result = json.loads(response_text)
+        examples = result.get("examples", [])
+        result["examples"] = _normalize_examples_payload(examples, request.word)
         return result
         
     except json.JSONDecodeError as e:
-        raise HTTPException(status_code=500, detail=f"Failed to parse AI response: {str(e)}")
+        raise HTTPException(status_code=502, detail=f"Failed to parse AI response JSON: {str(e)}")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"AI API error: {str(e)}")
+        _raise_ai_http_error(e)

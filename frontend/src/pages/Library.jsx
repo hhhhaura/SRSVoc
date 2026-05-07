@@ -6,6 +6,7 @@ import FolderSection from '../components/FolderSection';
 import DeckCard from '../components/DeckCard';
 import BottomNav from '../components/BottomNav';
 import Tooltip, { InfoBadge } from '../components/Tooltip';
+import { flattenDecksFromTree, flattenFolders, sortDecks, sortFolderTree, SORT_OPTIONS } from '../utils/libraryTree';
 
 const Library = () => {
   const navigate = useNavigate();
@@ -22,6 +23,8 @@ const Library = () => {
   const [movingDeckName, setMovingDeckName] = useState('');
   const [selectMode, setSelectMode] = useState(false);
   const [selectedDecks, setSelectedDecks] = useState(new Set());
+  const [sortBy, setSortBy] = useState(SORT_OPTIONS.NAME_ASC);
+  const [newFolderParentId, setNewFolderParentId] = useState(null);
 
   const fetchLibrary = async () => {
     try {
@@ -43,13 +46,20 @@ const Library = () => {
     if (!newFolderName.trim()) return;
 
     try {
-      await createFolder(newFolderName);
+      await createFolder(newFolderName, newFolderParentId);
       setNewFolderName('');
       setShowNewFolder(false);
+      setNewFolderParentId(null);
       fetchLibrary();
     } catch (error) {
       console.error('Failed to create folder:', error);
     }
+  };
+
+  const handleAddSubfolder = (parentId) => {
+    setShowNewFolder(true);
+    setNewFolderParentId(parentId);
+    setNewFolderName('');
   };
 
   const handleDeleteFolder = async (folderId) => {
@@ -104,10 +114,10 @@ const Library = () => {
   };
 
   // Batch delete handlers
-  const allDecks = [
-    ...library.root_decks,
-    ...library.folders.flatMap(f => f.decks || [])
-  ];
+  const sortedRootDecks = sortDecks(library.root_decks || [], sortBy);
+  const sortedFolders = sortFolderTree(library.folders || [], sortBy);
+  const allDecks = [...sortedRootDecks, ...flattenDecksFromTree(sortedFolders, sortBy)];
+  const allFolderOptions = flattenFolders(sortedFolders);
 
   const toggleDeckSelection = (deckId) => {
     setSelectedDecks(prev => {
@@ -162,6 +172,17 @@ const Library = () => {
             </Tooltip>
           </div>
           <div className="flex items-center gap-2">
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="px-2 py-2 border border-gray-200 rounded-lg text-sm bg-white"
+            >
+              <option value={SORT_OPTIONS.NAME_ASC}>Name A-Z</option>
+              <option value={SORT_OPTIONS.NAME_DESC}>Name Z-A</option>
+              <option value={SORT_OPTIONS.CREATED_DESC}>Created New-Old</option>
+              <option value={SORT_OPTIONS.CREATED_ASC}>Created Old-New</option>
+              <option value={SORT_OPTIONS.UPDATED_DESC}>Updated New-Old</option>
+            </select>
             {selectMode ? (
               <>
                 <button
@@ -215,6 +236,9 @@ const Library = () => {
                 <HelpCircle size={14} className="text-gray-400" />
               </Tooltip>
             </div>
+            {newFolderParentId !== null && (
+              <p className="text-xs text-indigo-600 mb-2">Creating subfolder</p>
+            )}
             <input
               type="text"
               value={newFolderName}
@@ -235,6 +259,7 @@ const Library = () => {
                 onClick={() => {
                   setShowNewFolder(false);
                   setNewFolderName('');
+                  setNewFolderParentId(null);
                 }}
                 className="flex-1 bg-gray-100 text-gray-600 py-2 rounded-xl font-medium hover:bg-gray-200 transition-colors"
               >
@@ -286,12 +311,13 @@ const Library = () => {
         )}
 
         {/* Folders */}
-        {library.folders.map(folder => (
+        {sortedFolders.map(folder => (
           <FolderSection 
             key={folder.id} 
             folder={folder} 
             onDelete={handleDeleteFolder}
             onAddDeck={handleAddDeckToFolder}
+            onAddSubfolder={handleAddSubfolder}
             selectMode={selectMode}
             selectedDecks={selectedDecks}
             onToggleSelect={toggleDeckSelection}
@@ -299,7 +325,7 @@ const Library = () => {
         ))}
 
         {/* Root Decks */}
-        {library.root_decks.length > 0 && (
+        {sortedRootDecks.length > 0 && (
           <div className="mt-6">
             <div className="flex items-center gap-2 mb-3">
               <h2 className="text-lg font-semibold text-gray-700">Decks</h2>
@@ -308,11 +334,11 @@ const Library = () => {
               )}
             </div>
             <div className="space-y-3">
-              {library.root_decks.map(deck => (
+              {sortedRootDecks.map(deck => (
                 <DeckCard 
                   key={deck.id} 
                   deck={deck} 
-                  showMoveButton={library.folders.length > 0}
+                  showMoveButton={allFolderOptions.length > 0}
                   onMove={handleOpenMoveModal}
                   selectMode={selectMode}
                   isSelected={selectedDecks.has(deck.id)}
@@ -323,7 +349,7 @@ const Library = () => {
           </div>
         )}
 
-        {library.folders.length === 0 && library.root_decks.length === 0 && (
+        {sortedFolders.length === 0 && sortedRootDecks.length === 0 && (
           <div className="text-center py-12">
             <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-100 rounded-2xl mb-4">
               <Plus size={32} className="text-gray-400" />
@@ -369,7 +395,7 @@ const Library = () => {
               </button>
 
               {/* Folder options */}
-              {library.folders.map(folder => (
+              {allFolderOptions.map(folder => (
                 <button
                   key={folder.id}
                   onClick={() => handleMoveDeck(folder.id)}
@@ -379,8 +405,8 @@ const Library = () => {
                     <Folder size={20} className="text-indigo-600" />
                   </div>
                   <div>
-                    <div className="font-medium text-gray-800">{folder.name}</div>
-                    <div className="text-xs text-gray-400">{folder.decks.length} decks</div>
+                    <div className="font-medium text-gray-800">{folder.path}</div>
+                    <div className="text-xs text-gray-400">{(folder.decks || []).length} decks</div>
                   </div>
                 </button>
               ))}

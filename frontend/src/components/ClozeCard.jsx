@@ -46,7 +46,7 @@ const ClozeCard = ({ examples, word, definition, synonyms, onResult, cardId, aiE
   const parsed = useMemo(() => {
     if (!sentence) return { parts: [], answers: [] };
     
-    const regex = /\*([^*]+)\*/g;
+    const regex = /\*\*([^*]+)\*\*|\*([^*]+)\*/g;
     const matches = [];
     let match;
     let lastIndex = 0;
@@ -57,7 +57,7 @@ const ClozeCard = ({ examples, word, definition, synonyms, onResult, cardId, aiE
       if (match.index > lastIndex) {
         parts.push({ type: 'text', content: sentence.slice(lastIndex, match.index) });
       }
-      const answer = match[1];
+      const answer = match[1] || match[2];
       const isCommonWord = commonWords.has(answer.toLowerCase());
       const firstLetter = (settings.showFirstLetterHint && !isCommonWord) ? answer.charAt(0) : '';
       parts.push({ type: 'cloze', content: answer, index: clozeIndex, firstLetter });

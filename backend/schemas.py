@@ -36,16 +36,18 @@ class FolderBase(BaseModel):
 
 
 class FolderCreate(FolderBase):
-    pass
+    parent_folder_id: Optional[int] = None
 
 
 class FolderUpdate(BaseModel):
     name: Optional[str] = None
+    parent_folder_id: Optional[int] = None
 
 
 class FolderResponse(FolderBase):
     id: int
     user_id: int
+    parent_folder_id: Optional[int]
     created_at: datetime
 
     class Config:
@@ -157,6 +159,9 @@ class ImportResponse(BaseModel):
 class DeckInFolder(BaseModel):
     id: int
     name: str
+    folder_id: Optional[int] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
     card_count: int
     mastered_count: int
     due_count: int
@@ -169,7 +174,9 @@ class DeckInFolder(BaseModel):
 class FolderWithDecks(BaseModel):
     id: int
     name: str
+    parent_folder_id: Optional[int] = None
     decks: List[DeckInFolder]
+    children: List["FolderWithDecks"] = []
 
     class Config:
         from_attributes = True
@@ -178,6 +185,9 @@ class FolderWithDecks(BaseModel):
 class LibraryResponse(BaseModel):
     folders: List[FolderWithDecks]
     root_decks: List[DeckInFolder]
+
+
+FolderWithDecks.model_rebuild()
 
 
 # CSV Import Schema

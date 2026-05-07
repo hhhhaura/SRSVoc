@@ -5,6 +5,7 @@ import { getLibrary, createDeck, createFolder } from '../api/library';
 import { importCards, importCardsCSV } from '../api/study';
 import BottomNav from '../components/BottomNav';
 import Tooltip from '../components/Tooltip';
+import { flattenDecksFromTree, flattenFolders, sortDecks, SORT_OPTIONS } from '../utils/libraryTree';
 
 const AddContent = () => {
   const navigate = useNavigate();
@@ -21,6 +22,7 @@ const AddContent = () => {
   const [selectedDeck, setSelectedDeck] = useState('');
   const [importText, setImportText] = useState('');
   const [importError, setImportError] = useState('');
+  const [sortBy, setSortBy] = useState(SORT_OPTIONS.NAME_ASC);
 
   useEffect(() => {
     const fetchLibrary = async () => {
@@ -35,9 +37,10 @@ const AddContent = () => {
   }, []);
 
   const allDecks = [
-    ...(library.root_decks || []),
-    ...(library.folders || []).flatMap(f => f.decks || [])
+    ...sortDecks(library.root_decks || [], sortBy).map(deck => ({ ...deck, folderPath: 'Root' })),
+    ...flattenDecksFromTree(library.folders || [], sortBy),
   ];
+  const allFolders = flattenFolders(library.folders || []);
 
   const handleCreateDeck = async (e) => {
     e.preventDefault();
@@ -144,14 +147,28 @@ const AddContent = () => {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Folder (optional)
               </label>
+              <div className="mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Sort Decks</label>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-200 rounded-xl bg-white"
+                >
+                  <option value={SORT_OPTIONS.NAME_ASC}>Name A-Z</option>
+                  <option value={SORT_OPTIONS.NAME_DESC}>Name Z-A</option>
+                  <option value={SORT_OPTIONS.CREATED_DESC}>Created New-Old</option>
+                  <option value={SORT_OPTIONS.CREATED_ASC}>Created Old-New</option>
+                  <option value={SORT_OPTIONS.UPDATED_DESC}>Updated New-Old</option>
+                </select>
+              </div>
               <select
                 value={selectedFolder}
                 onChange={(e) => setSelectedFolder(e.target.value)}
                 className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
               >
                 <option value="">No folder (root)</option>
-                {library.folders.map(folder => (
-                  <option key={folder.id} value={folder.id}>{folder.name}</option>
+                {allFolders.map(folder => (
+                  <option key={folder.id} value={folder.id}>{folder.path}</option>
                 ))}
               </select>
             </div>
@@ -181,6 +198,17 @@ const AddContent = () => {
                 Select Deck
               </label>
               <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white mb-2"
+              >
+                <option value={SORT_OPTIONS.NAME_ASC}>Name A-Z</option>
+                <option value={SORT_OPTIONS.NAME_DESC}>Name Z-A</option>
+                <option value={SORT_OPTIONS.CREATED_DESC}>Created New-Old</option>
+                <option value={SORT_OPTIONS.CREATED_ASC}>Created Old-New</option>
+                <option value={SORT_OPTIONS.UPDATED_DESC}>Updated New-Old</option>
+              </select>
+              <select
                 value={selectedDeck}
                 onChange={(e) => setSelectedDeck(e.target.value)}
                 className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none bg-white"
@@ -188,7 +216,7 @@ const AddContent = () => {
               >
                 <option value="">Choose a deck...</option>
                 {allDecks.map(deck => (
-                  <option key={deck.id} value={deck.id}>{deck.name}</option>
+                  <option key={deck.id} value={deck.id}>{deck.folderPath} / {deck.name}</option>
                 ))}
               </select>
             </div>

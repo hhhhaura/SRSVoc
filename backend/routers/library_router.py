@@ -1,7 +1,7 @@
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 
 from database import get_db
 from models import User, Folder, Deck, Card
@@ -28,8 +28,88 @@ def get_deck_stats(deck: Deck) -> dict:
         "card_count": card_count,
         "mastered_count": mastered_count,
         "due_count": due_count,
-        "cards_with_examples_count": cards_with_examples_count
+        "cards_with_examples_count": cards_with_examples_count,
+        "folder_id": deck.folder_id,
+        "created_at": deck.created_at,
+        "updated_at": deck.updated_at,
     }
+
+
+def build_folder_tree(folders: List[Folder]) -> List[FolderWithDecks]:
+    folder_nodes = {
+        folder.id: FolderWithDecks(
+            id=folder.id,
+            name=folder.name,
+            parent_folder_id=folder.parent_folder_id,
+            decks=[],
+            children=[],
+        )
+        for folder in folders
+    }
+
+    for folder in folders:
+        for deck in folder.decks:
+            stats = get_deck_stats(deck)
+            folder_nodes[folder.id].decks.append(DeckInFolder(
+                id=deck.id,
+                name=deck.name,
+                **stats,
+            ))
+
+        folder_nodes[folder.id].decks.sort(key=lambda deck_item: deck_item.name.lower())
+
+    roots = []
+    for folder in folders:
+        node = folder_nodes[folder.id]
+        if folder.parent_folder_id and folder.parent_folder_id in folder_nodes:
+            folder_nodes[folder.parent_folder_id].children.append(node)
+        else:
+            roots.append(node)
+
+    def sort_tree(node: FolderWithDecks) -> None:
+        node.children.sort(key=lambda child: child.name.lower())
+        for child in node.children:
+            sort_tree(child)
+
+    roots.sort(key=lambda folder_item: folder_item.name.lower())
+    for root in roots:
+        sort_tree(root)
+
+    return roots
+
+
+def assert_valid_parent_folder(
+    db: Session,
+    current_user: User,
+    parent_folder_id: Optional[int],
+    current_folder_id: Optional[int] = None,
+):
+    if parent_folder_id is None:
+        return
+
+    parent = db.query(Folder).filter(
+        Folder.id == parent_folder_id,
+        Folder.user_id == current_user.id,
+    ).first()
+    if not parent:
+        raise HTTPException(status_code=404, detail="Parent folder not found")
+
+    if current_folder_id is None:
+        return
+
+    if parent_folder_id == current_folder_id:
+        raise HTTPException(status_code=400, detail="Folder cannot be its own parent")
+
+    cursor = parent
+    while cursor is not None:
+        if cursor.parent_folder_id == current_folder_id:
+            raise HTTPException(status_code=400, detail="Cannot move folder into its descendant")
+        if cursor.parent_folder_id is None:
+            break
+        cursor = db.query(Folder).filter(
+            Folder.id == cursor.parent_folder_id,
+            Folder.user_id == current_user.id,
+        ).first()
 
 
 @router.get("", response_model=LibraryResponse)
@@ -47,27 +127,11 @@ async def get_library(
         Deck.folder_id == None
     ).all()
     
-    # Build folder response with decks
-    folders_with_decks = []
-    for folder in folders:
-        folder_decks = []
-        for deck in folder.decks:
-            stats = get_deck_stats(deck)
-            folder_decks.append(DeckInFolder(
-                id=deck.id,
-                name=deck.name,
-                **stats
-            ))
-        
-        folders_with_decks.append(FolderWithDecks(
-            id=folder.id,
-            name=folder.name,
-            decks=folder_decks
-        ))
+    folders_with_decks = build_folder_tree(folders)
     
     # Build root decks response
     root_decks_response = []
-    for deck in root_decks:
+    for deck in sorted(root_decks, key=lambda item: item.name.lower()):
         stats = get_deck_stats(deck)
         root_decks_response.append(DeckInFolder(
             id=deck.id,
@@ -89,7 +153,12 @@ async def create_folder(
     db: Session = Depends(get_db)
 ):
     """Create a new folder."""
-    folder = Folder(name=folder_data.name, user_id=current_user.id)
+    assert_valid_parent_folder(db, current_user, folder_data.parent_folder_id)
+    folder = Folder(
+        name=folder_data.name,
+        user_id=current_user.id,
+        parent_folder_id=folder_data.parent_folder_id,
+    )
     db.add(folder)
     db.commit()
     db.refresh(folder)
@@ -114,6 +183,9 @@ async def update_folder(
     
     if folder_data.name is not None:
         folder.name = folder_data.name
+    if "parent_folder_id" in folder_data.model_fields_set:
+        assert_valid_parent_folder(db, current_user, folder_data.parent_folder_id, current_folder_id=folder.id)
+        folder.parent_folder_id = folder_data.parent_folder_id
     
     db.commit()
     db.refresh(folder)
@@ -126,7 +198,7 @@ async def delete_folder(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Delete a folder. Decks inside are moved to root (folder_id = NULL)."""
+    """Delete a folder. Decks/children are moved to the parent folder (or root)."""
     folder = db.query(Folder).filter(
         Folder.id == folder_id,
         Folder.user_id == current_user.id
@@ -135,14 +207,15 @@ async def delete_folder(
     if not folder:
         raise HTTPException(status_code=404, detail="Folder not found")
     
-    # Move decks to root (set folder_id to NULL)
-    db.query(Deck).filter(Deck.folder_id == folder_id).update({"folder_id": None})
+    target_parent_id = folder.parent_folder_id
+    db.query(Deck).filter(Deck.folder_id == folder_id).update({"folder_id": target_parent_id})
+    db.query(Folder).filter(Folder.parent_folder_id == folder_id).update({"parent_folder_id": target_parent_id})
     
     # Delete the folder
     db.delete(folder)
     db.commit()
     
-    return {"message": "Folder deleted, decks moved to root"}
+    return {"message": "Folder deleted; nested content moved to parent"}
 
 
 # Deck CRUD

@@ -14,7 +14,7 @@ if SQLALCHEMY_DATABASE_URL.startswith("postgres://"):
 engine = create_engine(SQLALCHEMY_DATABASE_URL)
 
 def migrate():
-    """Add missing columns to the cards table."""
+    """Add missing columns to cards/folders tables."""
     inspector = inspect(engine)
     
     # Check if cards table exists
@@ -22,7 +22,7 @@ def migrate():
         print("Cards table doesn't exist yet, skipping migration")
         return
     
-    # Get existing columns
+    # Get existing card columns
     existing_columns = {col['name'] for col in inspector.get_columns('cards')}
     print(f"Existing columns in cards table: {existing_columns}")
     
@@ -44,6 +44,34 @@ def migrate():
             print("Added 'examples' column")
         else:
             print("Column 'examples' already exists")
+
+        # Add is_starred column if missing
+        if 'is_starred' not in existing_columns:
+            print("Adding 'is_starred' column...")
+            if engine.dialect.name == "postgresql":
+                conn.execute(text("ALTER TABLE cards ADD COLUMN is_starred BOOLEAN NOT NULL DEFAULT FALSE"))
+            else:
+                conn.execute(text("ALTER TABLE cards ADD COLUMN is_starred INTEGER NOT NULL DEFAULT 0"))
+            conn.commit()
+            print("Added 'is_starred' column")
+        else:
+            print("Column 'is_starred' already exists")
+
+    # Folder table migration for nested folders
+    if 'folders' in inspector.get_table_names():
+        folder_columns = {col['name'] for col in inspector.get_columns('folders')}
+        print(f"Existing columns in folders table: {folder_columns}")
+        with engine.connect() as conn:
+            if 'parent_folder_id' not in folder_columns:
+                print("Adding 'parent_folder_id' column to folders...")
+                if engine.dialect.name == "postgresql":
+                    conn.execute(text("ALTER TABLE folders ADD COLUMN parent_folder_id INTEGER REFERENCES folders(id)"))
+                else:
+                    conn.execute(text("ALTER TABLE folders ADD COLUMN parent_folder_id INTEGER REFERENCES folders(id)"))
+                conn.commit()
+                print("Added 'parent_folder_id' column")
+            else:
+                print("Column 'parent_folder_id' already exists")
 
 if __name__ == "__main__":
     migrate()

@@ -7,8 +7,8 @@ export const getLibrary = async () => {
 };
 
 // Folders
-export const createFolder = async (name) => {
-  const response = await api.post('/library/folders', { name });
+export const createFolder = async (name, parent_folder_id = null) => {
+  const response = await api.post('/library/folders', { name, parent_folder_id });
   return response.data;
 };
 

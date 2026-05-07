@@ -22,10 +22,13 @@ class Folder(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(100), nullable=False)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    parent_folder_id = Column(Integer, ForeignKey("folders.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User", back_populates="folders")
     decks = relationship("Deck", back_populates="folder")
+    parent_folder = relationship("Folder", remote_side=[id], back_populates="children")
+    children = relationship("Folder", back_populates="parent_folder")
 
 
 class Deck(Base):
