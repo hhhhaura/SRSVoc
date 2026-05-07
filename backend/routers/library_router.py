@@ -275,13 +275,15 @@ async def get_deck(
         raise HTTPException(status_code=404, detail="Deck not found")
     
     stats = get_deck_stats(deck)
+    stats_for_deck_response = {k: v for k, v in stats.items() if k != "folder_id"}
     
     return DeckResponse(
         id=deck.id,
         name=deck.name,
         user_id=deck.user_id,
+        folder_id=deck.folder_id,
         created_at=deck.created_at,
-        **stats
+        **stats_for_deck_response
     )
 
 
@@ -323,13 +325,15 @@ async def update_deck(
     db.refresh(deck)
     
     stats = get_deck_stats(deck)
+    stats_for_deck_response = {k: v for k, v in stats.items() if k != "folder_id"}
     
     return DeckResponse(
         id=deck.id,
         name=deck.name,
         user_id=deck.user_id,
+        folder_id=deck.folder_id,
         created_at=deck.created_at,
-        **stats
+        **stats_for_deck_response
     )
 
 
