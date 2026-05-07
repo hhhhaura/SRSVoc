@@ -280,7 +280,6 @@ async def get_deck(
         id=deck.id,
         name=deck.name,
         user_id=deck.user_id,
-        folder_id=deck.folder_id,
         created_at=deck.created_at,
         **stats
     )
@@ -329,7 +328,6 @@ async def update_deck(
         id=deck.id,
         name=deck.name,
         user_id=deck.user_id,
-        folder_id=deck.folder_id,
         created_at=deck.created_at,
         **stats
     )
