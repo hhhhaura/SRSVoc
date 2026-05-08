@@ -14,6 +14,8 @@ const Todo = () => {
   const [cardMode, setCardMode] = useState('flashcard'); // 'flashcard', 'cloze', 'cloze-ai'
   const [cardLimit, setCardLimit] = useState(20);
   const [sortBy, setSortBy] = useState(SORT_OPTIONS.NAME_ASC);
+  const [familiarityBucket, setFamiliarityBucket] = useState('all');
+  const [starredOnly, setStarredOnly] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -89,7 +91,9 @@ const Todo = () => {
     // Map cardMode to URL params
     const urlCardMode = cardMode === 'cloze-ai' ? 'cloze' : cardMode;
     const aiMode = cardMode === 'cloze-ai' ? '&aiCloze=true' : '';
-    navigate(`/study/multi?decks=${deckIdsParam}&mode=${studyMode}&cardMode=${urlCardMode}&limit=${cardLimit}${aiMode}`);
+    const subsetMode = familiarityBucket !== 'all' ? `&familiarityBucket=${familiarityBucket}` : '';
+    const starredMode = starredOnly ? '&starredOnly=true' : '';
+    navigate(`/study/multi?decks=${deckIdsParam}&mode=${studyMode}&cardMode=${urlCardMode}&limit=${cardLimit}${aiMode}${subsetMode}${starredMode}`);
   };
 
   if (loading) {
@@ -306,6 +310,60 @@ const Todo = () => {
                   No cards with examples in selected decks
                 </p>
               )}
+            </div>
+
+            {/* Review subset */}
+            <div className="bg-gray-50 rounded-xl p-4 mb-4">
+              <p className="text-xs font-medium text-gray-500 mb-2">REVIEW SUBSET</p>
+              <div className="grid grid-cols-2 gap-2 mb-3">
+                <button
+                  onClick={() => setFamiliarityBucket('all')}
+                  className={`py-2 rounded-lg text-sm font-medium transition-colors ${
+                    familiarityBucket === 'all' ? 'bg-gray-800 text-white' : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
+                  }`}
+                >
+                  All levels
+                </button>
+                <button
+                  onClick={() => setFamiliarityBucket('low')}
+                  className={`py-2 rounded-lg text-sm font-medium transition-colors ${
+                    familiarityBucket === 'low' ? 'bg-red-600 text-white' : 'bg-red-50 text-red-700 hover:bg-red-100'
+                  }`}
+                >
+                  Low (0-1)
+                </button>
+                <button
+                  onClick={() => setFamiliarityBucket('medium')}
+                  className={`py-2 rounded-lg text-sm font-medium transition-colors ${
+                    familiarityBucket === 'medium' ? 'bg-yellow-500 text-white' : 'bg-yellow-50 text-yellow-700 hover:bg-yellow-100'
+                  }`}
+                >
+                  Medium (2-3)
+                </button>
+                <button
+                  onClick={() => setFamiliarityBucket('high')}
+                  className={`py-2 rounded-lg text-sm font-medium transition-colors ${
+                    familiarityBucket === 'high' ? 'bg-green-600 text-white' : 'bg-green-50 text-green-700 hover:bg-green-100'
+                  }`}
+                >
+                  High (4+)
+                </button>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-700">Starred cards only</span>
+                <button
+                  onClick={() => setStarredOnly(prev => !prev)}
+                  className={`relative w-12 h-6 rounded-full transition-colors ${
+                    starredOnly ? 'bg-yellow-400' : 'bg-gray-300'
+                  }`}
+                >
+                  <span
+                    className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${
+                      starredOnly ? 'translate-x-7' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+              </div>
             </div>
 
             {/* Card Limit Slider */}

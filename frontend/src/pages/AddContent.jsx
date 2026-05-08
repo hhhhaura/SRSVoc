@@ -1,16 +1,19 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Plus, Upload, Loader2, FileText, HelpCircle } from 'lucide-react';
-import { getLibrary, createDeck, createFolder } from '../api/library';
-import { importCards, importCardsCSV } from '../api/study';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Plus, Upload, Loader2, FileText } from 'lucide-react';
+import { getLibrary, createDeck } from '../api/library';
+import { importCardsCSV } from '../api/study';
 import BottomNav from '../components/BottomNav';
 import Tooltip from '../components/Tooltip';
 import { flattenDecksFromTree, flattenFolders, sortDecks, SORT_OPTIONS } from '../utils/libraryTree';
 
 const AddContent = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const fileInputRef = useRef(null);
-  const [activeTab, setActiveTab] = useState('deck');
+  const initialTab = searchParams.get('tab') === 'import' ? 'import' : 'deck';
+  const presetDeckId = searchParams.get('deckId') || '';
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [library, setLibrary] = useState({ folders: [], root_decks: [] });
   const [loading, setLoading] = useState(false);
   
@@ -35,6 +38,13 @@ const AddContent = () => {
     };
     fetchLibrary();
   }, []);
+
+  useEffect(() => {
+    if (presetDeckId) {
+      setActiveTab('import');
+      setSelectedDeck(presetDeckId);
+    }
+  }, [presetDeckId]);
 
   const allDecks = [
     ...sortDecks(library.root_decks || [], sortBy).map(deck => ({ ...deck, folderPath: 'Root' })),
@@ -113,18 +123,26 @@ const AddContent = () => {
             <Plus size={20} className="inline mr-2" />
             New Deck
           </button>
-          <button
-            onClick={() => setActiveTab('import')}
-            className={`flex-1 py-3 rounded-xl font-medium transition-colors ${
-              activeTab === 'import'
-                ? 'bg-indigo-600 text-white'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}
-          >
-            <Upload size={20} className="inline mr-2" />
-            Import Cards
-          </button>
+          {presetDeckId && (
+            <button
+              onClick={() => setActiveTab('import')}
+              className={`flex-1 py-3 rounded-xl font-medium transition-colors ${
+                activeTab === 'import'
+                  ? 'bg-indigo-600 text-white'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              <Upload size={20} className="inline mr-2" />
+              Import Cards
+            </button>
+          )}
         </div>
+
+        {!presetDeckId && (
+          <div className="mb-4 bg-purple-50 border border-purple-200 text-purple-700 px-4 py-3 rounded-xl text-sm">
+            Card import entry has moved into each deck page. Open a deck and use the Import button there.
+          </div>
+        )}
 
         {/* New Deck Form */}
         {activeTab === 'deck' && (
@@ -185,7 +203,7 @@ const AddContent = () => {
         )}
 
         {/* Import Form */}
-        {activeTab === 'import' && (
+        {activeTab === 'import' && presetDeckId && (
           <form onSubmit={handleImport} className="bg-white rounded-xl shadow-lg p-6 space-y-4">
             {importError && (
               <div className="bg-red-50 text-red-600 px-4 py-3 rounded-xl text-sm">

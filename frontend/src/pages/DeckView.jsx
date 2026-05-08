@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Play, Plus, Trash2, Edit2, Loader2, RotateCcw, BookOpen, HelpCircle, CheckSquare, Square, X, ChevronDown, ChevronUp, Sparkles } from 'lucide-react';
+import { ArrowLeft, Play, Plus, Trash2, Edit2, Loader2, RotateCcw, BookOpen, HelpCircle, CheckSquare, Square, X, ChevronDown, ChevronUp, Sparkles, Upload } from 'lucide-react';
 import { getDeck, getCards, deleteDeck, deleteCard, createCard, updateCard, toggleCardStar } from '../api/library';
 import { resetDeckProgress, generateAIExamples, generateAIDefinition, generateAISynonyms } from '../api/study';
 import ProgressBar from '../components/ProgressBar';
@@ -32,6 +32,7 @@ const DeckView = () => {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiDefLoading, setAiDefLoading] = useState(false);
   const [aiSynLoading, setAiSynLoading] = useState(false);
+  const [cardSortDirection, setCardSortDirection] = useState('asc');
 
   const fetchData = async () => {
     try {
@@ -179,6 +180,11 @@ const DeckView = () => {
   const hasClozeCards = cards.some(card => card.examples?.some(ex => ex.sentence?.includes('*')));
   // Count cards with examples (for cloze mode)
   const cardsWithExamplesCount = cards.filter(card => card.examples && card.examples.length > 0).length;
+  const sortedCards = [...cards].sort((a, b) => {
+    const left = (a.word || '').toLowerCase();
+    const right = (b.word || '').toLowerCase();
+    return cardSortDirection === 'asc' ? left.localeCompare(right) : right.localeCompare(left);
+  });
 
   const toggleCardExpand = (cardId) => {
     setExpandedCards(prev => {
@@ -349,14 +355,23 @@ const DeckView = () => {
           </div>
         </div>
 
-        {/* Add Card Button */}
-        <button
-          onClick={() => setShowAddCard(true)}
-          className="flex items-center justify-center gap-2 w-full bg-indigo-100 text-indigo-600 py-3 rounded-xl font-medium hover:bg-indigo-200 transition-colors mb-6"
-        >
-          <Plus size={20} />
-          Add Card
-        </button>
+        {/* Deck actions */}
+        <div className="grid grid-cols-2 gap-3 mb-6">
+          <button
+            onClick={() => setShowAddCard(true)}
+            className="flex items-center justify-center gap-2 w-full bg-indigo-100 text-indigo-600 py-3 rounded-xl font-medium hover:bg-indigo-200 transition-colors"
+          >
+            <Plus size={20} />
+            Add Card
+          </button>
+          <button
+            onClick={() => navigate(`/add?tab=import&deckId=${deckId}`)}
+            className="flex items-center justify-center gap-2 w-full bg-purple-100 text-purple-700 py-3 rounded-xl font-medium hover:bg-purple-200 transition-colors"
+          >
+            <Upload size={18} />
+            Import
+          </button>
+        </div>
 
         {/* Add Card Form */}
         {showAddCard && (
@@ -552,6 +567,15 @@ const DeckView = () => {
         {cards.length > 0 && (
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-medium text-gray-700">Cards ({cards.length})</h3>
+            <div className="flex items-center gap-2">
+            {!selectMode && (
+              <button
+                onClick={() => setCardSortDirection(prev => (prev === 'asc' ? 'desc' : 'asc'))}
+                className="text-xs px-2 py-1 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200"
+              >
+                Sort: {cardSortDirection === 'asc' ? 'A-Z' : 'Z-A'}
+              </button>
+            )}
             {selectMode ? (
               <div className="flex items-center gap-2">
                 <button
@@ -583,12 +607,13 @@ const DeckView = () => {
                 Select
               </button>
             )}
+            </div>
           </div>
         )}
 
         {/* Cards List */}
         <div className="space-y-3">
-          {cards.map(card => {
+          {sortedCards.map(card => {
             const isExpanded = expandedCards.has(card.id);
             const hasDetails = (card.synonyms && card.synonyms.length > 0) || (card.examples && card.examples.length > 0);
             
