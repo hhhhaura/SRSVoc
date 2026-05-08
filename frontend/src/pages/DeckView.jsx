@@ -29,9 +29,12 @@ const DeckView = () => {
     synonymsText: '',
     examples: []
   });
-  const [aiLoading, setAiLoading] = useState(false);
-  const [aiDefLoading, setAiDefLoading] = useState(false);
-  const [aiSynLoading, setAiSynLoading] = useState(false);
+  const [addAiLoading, setAddAiLoading] = useState(false);
+  const [addAiDefLoading, setAddAiDefLoading] = useState(false);
+  const [addAiSynLoading, setAddAiSynLoading] = useState(false);
+  const [editAiLoading, setEditAiLoading] = useState(false);
+  const [editAiDefLoading, setEditAiDefLoading] = useState(false);
+  const [editAiSynLoading, setEditAiSynLoading] = useState(false);
   const [cardSortDirection, setCardSortDirection] = useState('asc');
 
   const fetchData = async () => {
@@ -214,6 +217,9 @@ const DeckView = () => {
   const closeEditModal = () => {
     setEditingCard(null);
     setEditForm({ word: '', definition: '', synonymsText: '', examples: [] });
+    setEditAiLoading(false);
+    setEditAiDefLoading(false);
+    setEditAiSynLoading(false);
   };
 
   const updateExampleField = (index, field, value) => {
@@ -391,7 +397,7 @@ const DeckView = () => {
                   type="button"
                   onClick={async () => {
                     if (!newCard.word.trim()) return;
-                    setAiDefLoading(true);
+                    setAddAiDefLoading(true);
                     try {
                       const result = await generateAIDefinition(newCard.word.trim());
                       if (result?.definition) {
@@ -401,13 +407,13 @@ const DeckView = () => {
                       console.error('AI definition generation failed:', error);
                       alert('Failed to generate definition. Please try again.');
                     } finally {
-                      setAiDefLoading(false);
+                      setAddAiDefLoading(false);
                     }
                   }}
-                  disabled={aiDefLoading || !newCard.word.trim()}
+                  disabled={addAiDefLoading || !newCard.word.trim()}
                   className="flex items-center gap-1 text-sm text-purple-600 hover:text-purple-700 disabled:text-gray-400"
                 >
-                  {aiDefLoading ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                  {addAiDefLoading ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
                   AI Generate
                 </button>
               </div>
@@ -426,7 +432,7 @@ const DeckView = () => {
                   type="button"
                   onClick={async () => {
                     if (!newCard.word.trim() || !newCard.definition.trim()) return;
-                    setAiSynLoading(true);
+                    setAddAiSynLoading(true);
                     try {
                       const result = await generateAISynonyms(newCard.word.trim(), newCard.definition.trim());
                       if (result?.synonyms && result.synonyms.length > 0) {
@@ -436,13 +442,13 @@ const DeckView = () => {
                       console.error('AI synonyms generation failed:', error);
                       alert('Failed to generate synonyms. Please try again.');
                     } finally {
-                      setAiSynLoading(false);
+                      setAddAiSynLoading(false);
                     }
                   }}
-                  disabled={aiSynLoading || !newCard.word.trim() || !newCard.definition.trim()}
+                  disabled={addAiSynLoading || !newCard.word.trim() || !newCard.definition.trim()}
                   className="flex items-center gap-1 text-sm text-purple-600 hover:text-purple-700 disabled:text-gray-400"
                 >
-                  {aiSynLoading ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                  {addAiSynLoading ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
                   AI Generate
                 </button>
               </div>
@@ -464,7 +470,7 @@ const DeckView = () => {
                     type="button"
                     onClick={async () => {
                       if (!newCard.word.trim() || !newCard.definition.trim()) return;
-                      setAiLoading(true);
+                      setAddAiLoading(true);
                       try {
                         const result = await generateAIExamples(newCard.word.trim(), newCard.definition.trim());
                         if (result?.examples && result.examples.length > 0) {
@@ -483,13 +489,13 @@ const DeckView = () => {
                         console.error('AI generation failed:', error);
                         alert('Failed to generate examples. Please try again.');
                       } finally {
-                        setAiLoading(false);
+                        setAddAiLoading(false);
                       }
                     }}
-                    disabled={aiLoading || !newCard.word.trim() || !newCard.definition.trim()}
+                    disabled={addAiLoading || !newCard.word.trim() || !newCard.definition.trim()}
                     className="flex items-center gap-1 text-sm text-purple-600 hover:text-purple-700 disabled:text-gray-400"
                   >
-                    {aiLoading ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                    {addAiLoading ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
                     AI Generate
                   </button>
                   <button
@@ -795,7 +801,7 @@ const DeckView = () => {
                     type="button"
                     onClick={async () => {
                       if (!editForm.word.trim()) return;
-                      setAiDefLoading(true);
+                      setEditAiDefLoading(true);
                       try {
                         const result = await generateAIDefinition(editForm.word.trim());
                         if (result?.definition) {
@@ -805,13 +811,13 @@ const DeckView = () => {
                         console.error('AI definition generation failed:', error);
                         alert('Failed to generate definition. Please try again.');
                       } finally {
-                        setAiDefLoading(false);
+                        setEditAiDefLoading(false);
                       }
                     }}
-                    disabled={aiDefLoading || !editForm.word.trim()}
+                    disabled={editAiDefLoading || !editForm.word.trim()}
                     className="flex items-center gap-1 text-sm text-purple-600 hover:text-purple-700 disabled:text-gray-400"
                   >
-                    {aiDefLoading ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                    {editAiDefLoading ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
                     AI Generate
                   </button>
                 </div>
@@ -830,7 +836,7 @@ const DeckView = () => {
                     type="button"
                     onClick={async () => {
                       if (!editForm.word.trim() || !editForm.definition.trim()) return;
-                      setAiSynLoading(true);
+                      setEditAiSynLoading(true);
                       try {
                         const result = await generateAISynonyms(editForm.word.trim(), editForm.definition.trim());
                         if (result?.synonyms && result.synonyms.length > 0) {
@@ -840,13 +846,13 @@ const DeckView = () => {
                         console.error('AI synonyms generation failed:', error);
                         alert('Failed to generate synonyms. Please try again.');
                       } finally {
-                        setAiSynLoading(false);
+                        setEditAiSynLoading(false);
                       }
                     }}
-                    disabled={aiSynLoading || !editForm.word.trim() || !editForm.definition.trim()}
+                    disabled={editAiSynLoading || !editForm.word.trim() || !editForm.definition.trim()}
                     className="flex items-center gap-1 text-sm text-purple-600 hover:text-purple-700 disabled:text-gray-400"
                   >
-                    {aiSynLoading ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                    {editAiSynLoading ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
                     AI Generate
                   </button>
                 </div>
@@ -867,7 +873,7 @@ const DeckView = () => {
                       type="button"
                       onClick={async () => {
                         if (!editForm.word.trim() || !editForm.definition.trim()) return;
-                        setAiLoading(true);
+                        setEditAiLoading(true);
                         try {
                           const result = await generateAIExamples(editForm.word.trim(), editForm.definition.trim());
                           if (result?.examples && result.examples.length > 0) {
@@ -884,15 +890,15 @@ const DeckView = () => {
                           }
                         } catch (error) {
                           console.error('AI generation failed:', error);
-                          alert('Failed to generate examples. Please try again.');
+                          alert(`Failed to generate examples. ${error?.response?.data?.detail || 'Please try again.'}`);
                         } finally {
-                          setAiLoading(false);
+                          setEditAiLoading(false);
                         }
                       }}
-                      disabled={aiLoading || !editForm.word.trim() || !editForm.definition.trim()}
+                      disabled={editAiLoading || !editForm.word.trim() || !editForm.definition.trim()}
                       className="flex items-center gap-1 text-sm text-purple-600 hover:text-purple-700 disabled:text-gray-400"
                     >
-                      {aiLoading ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                      {editAiLoading ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
                       AI Generate
                     </button>
                     <button
