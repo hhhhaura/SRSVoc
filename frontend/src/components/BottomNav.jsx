@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Library, Plus, LogOut, Settings, GraduationCap } from 'lucide-react';
+import { Library, LogOut, Settings, GraduationCap } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const BottomNav = () => {
@@ -36,18 +36,6 @@ const BottomNav = () => {
             <span className="text-xs mt-1 font-medium">Study</span>
           </Link>
           
-          <Link
-            to="/add"
-            className={`flex flex-col items-center justify-center px-3 py-2 rounded-xl transition-colors ${
-              isActive('/add') 
-                ? 'text-indigo-600 bg-indigo-50' 
-                : 'text-gray-500 hover:text-indigo-600'
-            }`}
-          >
-            <Plus size={22} />
-            <span className="text-xs mt-1 font-medium">Add</span>
-          </Link>
-
           <Link
             to="/settings"
             className={`flex flex-col items-center justify-center px-3 py-2 rounded-xl transition-colors ${

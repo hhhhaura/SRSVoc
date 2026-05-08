@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Play, Plus, Trash2, Edit2, Loader2, RotateCcw, BookOpen, HelpCircle, CheckSquare, Square, X, ChevronDown, ChevronUp, Sparkles, Upload } from 'lucide-react';
+import { ArrowLeft, Play, Plus, Trash2, Edit2, Loader2, RotateCcw, BookOpen, HelpCircle, CheckSquare, Square, X, ChevronDown, ChevronUp, Sparkles, Upload, FileText } from 'lucide-react';
 import { getDeck, getCards, deleteDeck, deleteCard, createCard, updateCard, toggleCardStar } from '../api/library';
-import { resetDeckProgress, generateAIExamples, generateAIDefinition, generateAISynonyms } from '../api/study';
+import { resetDeckProgress, generateAIExamples, generateAIDefinition, generateAISynonyms, importCardsCSV } from '../api/study';
 import ProgressBar from '../components/ProgressBar';
 import BottomNav from '../components/BottomNav';
 import Tooltip from '../components/Tooltip';
@@ -13,6 +13,7 @@ import StudyOptionsModal from '../components/StudyOptionsModal';
 const DeckView = () => {
   const { deckId } = useParams();
   const navigate = useNavigate();
+  const importFileInputRef = useRef(null);
   const [deck, setDeck] = useState(null);
   const [cards, setCards] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -36,6 +37,10 @@ const DeckView = () => {
   const [editAiDefLoading, setEditAiDefLoading] = useState(false);
   const [editAiSynLoading, setEditAiSynLoading] = useState(false);
   const [cardSortDirection, setCardSortDirection] = useState('asc');
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importText, setImportText] = useState('');
+  const [importLoading, setImportLoading] = useState(false);
+  const [importError, setImportError] = useState('');
 
   const fetchData = async () => {
     try {
@@ -275,6 +280,36 @@ const DeckView = () => {
     }
   };
 
+  const handleImportFileUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setImportText(event.target?.result || '');
+    };
+    reader.readAsText(file);
+  };
+
+  const handleImportCards = async (e) => {
+    e.preventDefault();
+    setImportError('');
+    if (!importText.trim()) {
+      setImportError('Please enter or upload some data.');
+      return;
+    }
+    setImportLoading(true);
+    try {
+      await importCardsCSV(deckId, importText);
+      setShowImportModal(false);
+      setImportText('');
+      fetchData();
+    } catch (error) {
+      setImportError(error.response?.data?.detail || 'Failed to import cards');
+    } finally {
+      setImportLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -371,7 +406,7 @@ const DeckView = () => {
             Add Card
           </button>
           <button
-            onClick={() => navigate(`/add?tab=import&deckId=${deckId}`)}
+            onClick={() => setShowImportModal(true)}
             className="flex items-center justify-center gap-2 w-full bg-purple-100 text-purple-700 py-3 rounded-xl font-medium hover:bg-purple-200 transition-colors"
           >
             <Upload size={18} />
@@ -958,6 +993,76 @@ const DeckView = () => {
                 <button
                   type="button"
                   onClick={closeEditModal}
+                  className="flex-1 bg-gray-100 text-gray-600 py-3 rounded-xl font-medium hover:bg-gray-200 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Import Modal */}
+      {showImportModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <h3 className="font-semibold text-gray-800">Import Cards to {deck?.name}</h3>
+              <button
+                onClick={() => {
+                  setShowImportModal(false);
+                  setImportText('');
+                  setImportError('');
+                }}
+                className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
+              >
+                <X size={20} className="text-gray-500" />
+              </button>
+            </div>
+            <form onSubmit={handleImportCards} className="p-6 space-y-4 overflow-y-auto">
+              {importError && (
+                <div className="bg-red-50 text-red-600 px-4 py-3 rounded-xl text-sm">
+                  {importError}
+                </div>
+              )}
+              <input
+                type="file"
+                ref={importFileInputRef}
+                accept=".csv,.txt"
+                onChange={handleImportFileUpload}
+                className="hidden"
+              />
+              <button
+                type="button"
+                onClick={() => importFileInputRef.current?.click()}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 hover:border-indigo-500 hover:text-indigo-600 transition-colors"
+              >
+                <FileText size={20} />
+                Upload .csv or .txt
+              </button>
+              <textarea
+                value={importText}
+                onChange={(e) => setImportText(e.target.value)}
+                placeholder={`CSV: word,meaning,syn1 | syn2,(ex1 | trans1); (ex2 | trans2)\nPipe: word || meaning || syn1 | syn2 || (ex1 | trans1); (ex2 | trans2)`}
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none resize-none font-mono text-sm"
+                rows={10}
+              />
+              <div className="flex gap-3">
+                <button
+                  type="submit"
+                  disabled={importLoading || !importText.trim()}
+                  className="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-medium hover:bg-indigo-700 transition-colors disabled:bg-indigo-400"
+                >
+                  {importLoading ? 'Importing...' : 'Import Cards'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowImportModal(false);
+                    setImportText('');
+                    setImportError('');
+                  }}
                   className="flex-1 bg-gray-100 text-gray-600 py-3 rounded-xl font-medium hover:bg-gray-200 transition-colors"
                 >
                   Cancel

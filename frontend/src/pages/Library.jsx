@@ -217,6 +217,17 @@ const Library = () => {
                   </button>
                 )}
                 <button
+                  onClick={() => {
+                    setTargetFolderId(null);
+                    setTargetFolderName('');
+                    setShowNewDeck(true);
+                  }}
+                  className="flex items-center gap-2 bg-purple-100 text-purple-700 px-4 py-2 rounded-xl font-medium hover:bg-purple-200 transition-colors"
+                >
+                  <Plus size={20} />
+                  New Deck
+                </button>
+                <button
                   onClick={() => setShowNewFolder(true)}
                   className="flex items-center gap-2 bg-indigo-100 text-indigo-600 px-4 py-2 rounded-xl font-medium hover:bg-indigo-200 transition-colors"
                 >

@@ -7,7 +7,6 @@ import Library from './pages/Library';
 import DeckView from './pages/DeckView';
 import Study from './pages/Study';
 import MultiDeckStudy from './pages/MultiDeckStudy';
-import AddContent from './pages/AddContent';
 import Settings from './pages/Settings';
 import Todo from './pages/Todo';
 import { Loader2 } from 'lucide-react';
@@ -82,11 +81,6 @@ function App() {
             <Route path="/study/multi" element={
               <ProtectedRoute>
                 <MultiDeckStudy />
-              </ProtectedRoute>
-            } />
-            <Route path="/add" element={
-              <ProtectedRoute>
-                <AddContent />
               </ProtectedRoute>
             } />
             <Route path="/settings" element={

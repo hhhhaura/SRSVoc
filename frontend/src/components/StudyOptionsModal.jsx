@@ -240,8 +240,8 @@ const StudyOptionsModal = ({ isOpen, onClose, onStart, deckName, dueCount, total
                 }`}
               >
                 <span
-                  className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${
-                    starredOnly ? 'translate-x-7' : 'translate-x-1'
+                  className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${
+                    starredOnly ? 'translate-x-6' : 'translate-x-0'
                   }`}
                 />
               </button>

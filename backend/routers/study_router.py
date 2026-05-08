@@ -548,12 +548,20 @@ def _raise_ai_http_error(error: Exception) -> None:
 def _bold_target_variants(sentence: str, word: str) -> str:
     if not sentence or not word:
         return sentence
-    if "**" in sentence:
-        return sentence
 
     escaped = re.escape(word.strip())
     # Common English inflection variants: -s, -es, -ed, -ing, -d.
-    pattern = rf"\b({escaped}(?:s|es|ed|ing|d)?)\b"
+    core_pattern = rf"{escaped}(?:s|es|ed|ing|d)?"
+
+    # Normalize existing AI markers first so we don't end up with ***word***.
+    sentence = re.sub(
+        rf"(?<!\w)\*{{1,2}}({core_pattern})\*{{1,2}}(?!\w)",
+        r"\1",
+        sentence,
+        flags=re.IGNORECASE,
+    )
+
+    pattern = rf"\b({core_pattern})\b"
     return re.sub(pattern, r"**\1**", sentence, flags=re.IGNORECASE)
 
 
