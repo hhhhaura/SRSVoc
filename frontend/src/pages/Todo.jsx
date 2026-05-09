@@ -1,12 +1,19 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { CheckCircle2, Clock, Play, Loader2, CheckSquare, Square, Layers, Sparkles, Eye, EyeOff } from 'lucide-react';
+import { CheckCircle2, Clock, Play, Loader2, Layers, Sparkles, Eye, EyeOff } from 'lucide-react';
 import { getLibrary } from '../api/library';
 import BottomNav from '../components/BottomNav';
-import { flattenDecksFromTree, sortDecks, SORT_OPTIONS } from '../utils/libraryTree';
+import StudyDeckPicker from '../components/StudyDeckPicker';
+import {
+  flattenDecksFromTree,
+  sortDecks,
+  sortFolderTree,
+  SORT_OPTIONS,
+  collectDeckIdsInFolderTree,
+} from '../utils/libraryTree';
 
 const Todo = () => {
-  const [decks, setDecks] = useState([]);
+  const [library, setLibrary] = useState({ folders: [], root_decks: [] });
   const [loading, setLoading] = useState(true);
   const [selectedDecks, setSelectedDecks] = useState(new Set());
   const [showAllDecks, setShowAllDecks] = useState(false);
@@ -22,12 +29,10 @@ const Todo = () => {
     const fetchDecks = async () => {
       try {
         const data = await getLibrary();
-        // Flatten all decks from folders and root_decks
-        const allDecks = [
-          ...sortDecks(data.root_decks || [], sortBy).map(deck => ({ ...deck, folderPath: 'Root' })),
-          ...flattenDecksFromTree(data.folders || [], sortBy)
-        ];
-        setDecks(allDecks);
+        setLibrary({
+          folders: data.folders || [],
+          root_decks: data.root_decks || [],
+        });
       } catch (error) {
         console.error('Failed to fetch library:', error);
       } finally {
@@ -35,13 +40,47 @@ const Todo = () => {
       }
     };
     fetchDecks();
-  }, [sortBy]);
+  }, []);
 
-  // Filter decks based on showAllDecks toggle
-  const decksWithCards = decks.filter(deck => deck.card_count > 0);
-  const pendingDecks = decksWithCards.filter(deck => deck.due_count > 0);
-  const completedDecks = decksWithCards.filter(deck => deck.due_count === 0);
-  const displayedDecks = showAllDecks ? decksWithCards : pendingDecks;
+  const { filteredRootDecks, filteredFolders, allDecksFlat } = useMemo(() => {
+    const sortedRoot = sortDecks(library.root_decks || [], sortBy);
+    const sortedFolders = sortFolderTree(library.folders || [], sortBy);
+    const deckMatchesPicker = (deck) =>
+      deck.card_count > 0 && (showAllDecks || deck.due_count > 0);
+
+    const filterFolderForStudy = (folder) => {
+      const decks = (folder.decks || []).filter(deckMatchesPicker);
+      const children = (folder.children || [])
+        .map(filterFolderForStudy)
+        .filter(Boolean);
+      if (decks.length === 0 && children.length === 0) return null;
+      return { ...folder, decks, children };
+    };
+
+    const filteredRoot = sortedRoot.filter(deckMatchesPicker);
+    const filteredFols = sortedFolders.map(filterFolderForStudy).filter(Boolean);
+
+    const allFlat = [
+      ...sortedRoot.map((deck) => ({ ...deck, folderPath: 'Root' })),
+      ...flattenDecksFromTree(library.folders || [], sortBy),
+    ];
+
+    return {
+      filteredRootDecks: filteredRoot,
+      filteredFolders: filteredFols,
+      allDecksFlat: allFlat,
+    };
+  }, [library, sortBy, showAllDecks]);
+
+  const decksWithCards = allDecksFlat.filter((deck) => deck.card_count > 0);
+  const pendingDecks = decksWithCards.filter((deck) => deck.due_count > 0);
+  const allVisibleDeckIds = useMemo(() => {
+    const ids = filteredRootDecks.map((d) => d.id);
+    for (const f of filteredFolders) {
+      ids.push(...collectDeckIdsInFolderTree(f));
+    }
+    return ids;
+  }, [filteredRootDecks, filteredFolders]);
   
   const totalDue = pendingDecks.reduce((sum, deck) => sum + deck.due_count, 0);
   const totalCards = decksWithCards.reduce((sum, deck) => sum + deck.card_count, 0);
@@ -59,11 +98,35 @@ const Todo = () => {
   };
 
   const selectAllDisplayed = () => {
-    setSelectedDecks(new Set(displayedDecks.map(d => d.id)));
+    setSelectedDecks(new Set(allVisibleDeckIds));
   };
 
   const clearSelection = () => {
     setSelectedDecks(new Set());
+  };
+
+  const toggleFolderSelection = (folder) => {
+    const ids = collectDeckIdsInFolderTree(folder);
+    if (ids.length === 0) return;
+    setSelectedDecks((prev) => {
+      const allSelected = ids.every((id) => prev.has(id));
+      const next = new Set(prev);
+      if (allSelected) ids.forEach((id) => next.delete(id));
+      else ids.forEach((id) => next.add(id));
+      return next;
+    });
+  };
+
+  const toggleRootSelection = () => {
+    const ids = filteredRootDecks.map((d) => d.id);
+    if (ids.length === 0) return;
+    setSelectedDecks((prev) => {
+      const allSelected = ids.every((id) => prev.has(id));
+      const next = new Set(prev);
+      if (allSelected) ids.forEach((id) => next.delete(id));
+      else ids.forEach((id) => next.add(id));
+      return next;
+    });
   };
 
   // Calculate selected card counts
@@ -194,47 +257,14 @@ const Todo = () => {
               </div>
             </div>
 
-            {/* Deck Selection List */}
-            <div className="space-y-2 mb-4 max-h-64 overflow-y-auto">
-              {displayedDecks.map(deck => (
-                <button
-                  key={deck.id}
-                  onClick={() => toggleDeckSelection(deck.id)}
-                  className={`w-full text-left bg-white rounded-xl shadow p-3 transition-all border-2 ${
-                    selectedDecks.has(deck.id)
-                      ? 'border-indigo-500 bg-indigo-50'
-                      : 'border-transparent hover:shadow-md'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    {selectedDecks.has(deck.id) ? (
-                      <CheckSquare size={20} className="text-indigo-600 flex-shrink-0" />
-                    ) : (
-                      <Square size={20} className="text-gray-400 flex-shrink-0" />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-medium text-gray-800 truncate text-sm">{deck.name}</h3>
-                      <p className="text-[11px] text-gray-400 truncate">{deck.folderPath}</p>
-                      <p className="text-xs text-gray-500">{deck.card_count} cards</p>
-                    </div>
-                    {deck.due_count > 0 ? (
-                      <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0">
-                        {deck.due_count} due
-                      </span>
-                    ) : (
-                      <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0">
-                        ✓
-                      </span>
-                    )}
-                  </div>
-                </button>
-              ))}
-              {displayedDecks.length === 0 && (
-                <p className="text-center text-gray-400 py-4 text-sm">
-                  {showAllDecks ? 'No decks available' : 'No due cards. Toggle "All Decks" to practice.'}
-                </p>
-              )}
-            </div>
+            <StudyDeckPicker
+              filteredRootDecks={filteredRootDecks}
+              filteredFolders={filteredFolders}
+              selectedDecks={selectedDecks}
+              onToggleDeck={toggleDeckSelection}
+              onToggleRoot={toggleRootSelection}
+              onToggleFolder={toggleFolderSelection}
+            />
 
             {/* Study Mode Toggle */}
             <div className="bg-gray-50 rounded-xl p-4 mb-4">

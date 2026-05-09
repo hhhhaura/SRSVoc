@@ -49,3 +49,12 @@ export const sortFolderTree = (folders = [], sortBy = SORT_OPTIONS.NAME_ASC) =>
       children: sortFolderTree(folder.children || [], sortBy),
     }))
     .sort((a, b) => a.name.localeCompare(b.name));
+
+/** All deck ids in a folder node (direct decks + nested folders), in tree order. */
+export const collectDeckIdsInFolderTree = (folder) => {
+  const ids = (folder.decks || []).map((d) => d.id);
+  for (const child of folder.children || []) {
+    ids.push(...collectDeckIdsInFolderTree(child));
+  }
+  return ids;
+};
