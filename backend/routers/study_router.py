@@ -471,7 +471,7 @@ AI_EXAMPLE_PROMPT = '''Generate 2 example sentences for the English word/phrase 
 
 Requirements:
 1. Each example should be a natural, clear sentence using the word
-2. Wrap the target word in asterisks like *word* in the ENGLISH sentence ONLY
+2. Wrap the target word in asterisks like *word* in the ENGLISH sentence ONLY (for multi-word phrases, wrap EACH word separately, e.g. *be* *able* *to* — use single asterisks only, not double asterisks)
 3. Provide a TRADITIONAL CHINESE (繁體中文) translation for each example
 4. DO NOT use asterisks in the Chinese translation - keep it plain text
 5. Example 1: A simple, everyday usage
@@ -510,7 +510,7 @@ Words:
 
 Requirements:
 1. Each example should be a natural, clear sentence using the word
-2. Wrap the target word in asterisks like *word* in the ENGLISH sentence ONLY
+2. Wrap the target word in asterisks like *word* in the ENGLISH sentence ONLY (for multi-word phrases, wrap EACH word separately, e.g. *be* *able* *to* — use single asterisks only, not double asterisks)
 3. Provide a TRADITIONAL CHINESE (繁體中文) translation for each example
 4. DO NOT use asterisks in the Chinese translation - keep it plain text
 
@@ -545,15 +545,20 @@ def _raise_ai_http_error(error: Exception) -> None:
     raise HTTPException(status_code=502, detail=f"AI service error: {message}")
 
 
-def _bold_target_variants(sentence: str, word: str) -> str:
-    if not sentence or not word:
+def _token_core_pattern(token: str) -> str:
+    escaped = re.escape(token.strip())
+    # Common English inflection variants: -s, -es, -ed, -ing, -d.
+    return rf"{escaped}(?:s|es|ed|ing|d)?"
+
+
+def _bold_one_token(sentence: str, token: str) -> str:
+    """Wrap one vocabulary token in *single* asterisks; supports common inflections."""
+    if not sentence or not token:
         return sentence
 
-    escaped = re.escape(word.strip())
-    # Common English inflection variants: -s, -es, -ed, -ing, -d.
-    core_pattern = rf"{escaped}(?:s|es|ed|ing|d)?"
+    core_pattern = _token_core_pattern(token)
 
-    # Normalize existing AI markers first so we don't end up with ***word***.
+    # Strip existing * / ** markers so we don't end up with ***word***.
     sentence = re.sub(
         rf"(?<!\w)\*{{1,2}}({core_pattern})\*{{1,2}}(?!\w)",
         r"\1",
@@ -562,7 +567,52 @@ def _bold_target_variants(sentence: str, word: str) -> str:
     )
 
     pattern = rf"\b({core_pattern})\b"
-    return re.sub(pattern, r"**\1**", sentence, flags=re.IGNORECASE)
+    return re.sub(pattern, r"*\1*", sentence, flags=re.IGNORECASE)
+
+
+def _unwrap_marked_phrase(sentence: str, tokens: List[str]) -> str:
+    """Remove * / ** wrappers around a contiguous AI-marked phrase so we can re-wrap cleanly."""
+    if len(tokens) < 2:
+        return sentence
+    cores = [_token_core_pattern(t) for t in tokens]
+    inner = r"\s+".join(rf"\*{{1,2}}({c})\*{{1,2}}" for c in cores)
+    pattern = rf"(?<!\w){inner}(?!\w)"
+
+    def repl(m):
+        return " ".join(m.group(i) for i in range(1, len(tokens) + 1))
+
+    return re.sub(pattern, repl, sentence, flags=re.IGNORECASE)
+
+
+def _bold_phrase_sequence(sentence: str, tokens: List[str]) -> str:
+    """Match the phrase as consecutive tokens (not each word globally). Output *w1* *w2* *w3*."""
+    if len(tokens) < 2:
+        return sentence
+    sentence = _unwrap_marked_phrase(sentence, tokens)
+    cores = [_token_core_pattern(t) for t in tokens]
+    inner = r"\s+".join(rf"({c})" for c in cores)
+    pattern = rf"\b{inner}\b"
+
+    def repl(m):
+        return " ".join(f"*{m.group(i)}*" for i in range(1, len(tokens) + 1))
+
+    return re.sub(pattern, repl, sentence, flags=re.IGNORECASE)
+
+
+def _bold_target_variants(sentence: str, word: str) -> str:
+    """Mark target word(s) with single *...* for cloze. Multi-word phrases: one pair per token in the phrase."""
+    if not sentence or not word:
+        return sentence
+
+    cleaned = word.strip()
+    tokens = [t for t in re.split(r"\s+", cleaned) if t]
+    if not tokens:
+        return sentence
+
+    if len(tokens) == 1:
+        return _bold_one_token(sentence, tokens[0])
+
+    return _bold_phrase_sequence(sentence, tokens)
 
 
 def _normalize_examples_payload(examples: List[Dict[str, Any]], word: str) -> List[Dict[str, Any]]:
